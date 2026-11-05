@@ -78,7 +78,11 @@
     await document.fonts.ready;
     await nextFrame();
 
-    document.body.style.background = opts.background === "full" ? getComputedStyle(root).backgroundColor : "";
+    // Fill around the article with its own background. With "page" the capture is
+    // widened to whole cells, so a sliver outside the article is in the image too.
+    const bg = opts.background === "transparent" ? "" : getComputedStyle(root).backgroundColor;
+    html.style.background = bg;
+    document.body.style.background = bg;
 
     const rect = root.getBoundingClientRect();
     const lines = [];

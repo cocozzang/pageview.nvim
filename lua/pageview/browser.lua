@@ -122,17 +122,15 @@ local function launch(path)
   end
   local ok, res = pcall(function()
     call(client, "Browser.getVersion")
-    -- Reuse the tab the browser opened instead of creating a second renderer.
-    local targets = call(client, "Target.getTargets").targetInfos or {}
-    local target_id
-    for _, t in ipairs(targets) do
-      if t.type == "page" then
-        target_id = t.targetId
-        break
+    -- Render in a tab we create. The tab the browser opens at startup returns
+    -- repeated tiles when capturing beyond its viewport, so close it instead
+    -- of reusing it (that also frees its renderer).
+    local initial = call(client, "Target.getTargets").targetInfos or {}
+    local target_id = call(client, "Target.createTarget", { url = "about:blank" }).targetId
+    for _, t in ipairs(initial) do
+      if t.type == "page" and t.targetId ~= target_id then
+        pcall(call, client, "Target.closeTarget", { targetId = t.targetId })
       end
-    end
-    if not target_id then
-      target_id = call(client, "Target.createTarget", { url = "about:blank" }).targetId
     end
     local session = call(client, "Target.attachToTarget", { targetId = target_id, flatten = true }).sessionId
     call(client, "Page.enable", nil, session)

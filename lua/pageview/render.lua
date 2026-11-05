@@ -15,7 +15,7 @@ local M = {}
 M.SLICE_ROWS = 48
 
 --- Bump when the layout or capture logic changes so old cache entries are ignored.
-M.VERSION = 1
+M.VERSION = 2 -- 2: captures from a fresh tab (version 1 could cache tiled images)
 
 ---@class pageview.RenderParams
 ---@field src string markdown source
