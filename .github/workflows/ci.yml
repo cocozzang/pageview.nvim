@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: 2.1.0
+          args: --check lua plugin tests
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - name: Install lua-language-server
+        run: |
+          mkdir -p "$HOME/luals"
+          curl -fsSL https://github.com/LuaLS/lua-language-server/releases/download/3.15.0/lua-language-server-3.15.0-linux-x64.tar.gz \
+            | tar xz -C "$HOME/luals"
+      - name: Check
+        run: make lint LUALS="$HOME/luals/bin/lua-language-server"
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nvim: [v0.10.4, stable]
+    env:
+      # keep the test cache inside the workspace
+      XDG_CACHE_HOME: ${{ github.workspace }}/.tests/cache
+    steps:
+      - uses: actions/checkout@v4
+      - name: Browser
+        run: google-chrome --version
+      - uses: nvim-neorocks/nvim-busted-action@v1
+        with:
+          nvim_version: ${{ matrix.nvim }}
