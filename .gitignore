@@ -1,0 +1,7 @@
+.DS_Store
+doc/tags
+/.tests/
+/.luarocks/
+/lua_modules/
+/luarocks
+*.rock
