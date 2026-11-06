@@ -166,6 +166,44 @@ describe("page", function()
     assert.are.equal("Ship it 🎉 :) :not_an_emoji: :tada:", text)
   end)
 
+  describe("math", function()
+    local counts = [[({
+      inline: document.querySelectorAll('#root .math-inline > .katex').length,
+      display: document.querySelectorAll('#root .math-display .katex-display').length,
+      errors: document.querySelectorAll('#root .katex-error').length,
+    })]]
+
+    it_browser("is typeset with GitHub's delimiters", function()
+      local src = table.concat({
+        "Inline $x^2$ and $`y_1`$.",
+        "$$\n\\frac{a}{b}\n$$",
+        "```math\n\\sqrt{2}\n```",
+        "Display $$e^{i\\pi}$$ in a line.",
+      }, "\n\n")
+      assert.are.same({ inline = 2, display = 3, errors = 0 }, page(src, counts))
+    end)
+
+    it_browser("leaves prices and code alone", function()
+      local src = "It costs $5 and $10.\n\n`$x$` and\n\n```\n$$y$$\n```"
+      assert.are.same({ inline = 0, display = 0, errors = 0 }, page(src, counts))
+    end)
+
+    it_browser("shows a broken formula without breaking the page", function()
+      local got = page("Before $\\frac{1$ after.\n\nNext paragraph.", counts .. ".errors + ',' + root.children.length")
+      assert.are.equal("1,2", got)
+    end)
+
+    it_browser("has KaTeX's fonts loaded when the layout is reported", function()
+      -- Fraktur is used nowhere else, so its font is not loaded yet
+      local status = page(
+        "",
+        [[pageviewRender("$\\mathfrak{A}$").then(() =>
+          [...document.fonts].filter((f) => f.family === "KaTeX_Fraktur").map((f) => f.status))]]
+      )
+      assert.is_true(vim.tbl_contains(status, "loaded"), vim.inspect(status))
+    end)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',
