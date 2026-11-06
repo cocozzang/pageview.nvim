@@ -204,6 +204,41 @@ describe("page", function()
     end)
   end)
 
+  describe("mermaid", function()
+    local flowchart = "```mermaid\ngraph TD\n  A[Start] --> B[End]\n```"
+
+    it_browser("draws diagrams before the layout is reported", function()
+      local got = page(
+        flowchart .. "\n\nAfter.",
+        [[({
+          svgs: document.querySelectorAll('#root .pv-mermaid > svg').length,
+          labels: [...document.querySelectorAll('#root .pv-mermaid .nodeLabel')].map((n) => n.textContent),
+          code: document.querySelectorAll('#root pre').length,
+        })]]
+      )
+      assert.are.same({ svgs = 1, labels = { "Start", "End" }, code = 0 }, got)
+    end)
+
+    it_browser("follow the theme", function()
+      local label_color = "getComputedStyle(document.querySelector('#root .pv-mermaid .nodeLabel')).color"
+      local dark = page(flowchart, label_color, { theme = "github-dark" })
+      local light = page(flowchart, label_color, { theme = "github-light" })
+      assert.are_not.equal(dark, light)
+    end)
+
+    it_browser("show a broken diagram's error in its place", function()
+      local got = page(
+        "```mermaid\ngraph TD\n  A --> \n  ((\n```\n\nAfter.",
+        [[({
+          error: document.querySelector('#root .pv-mermaid > pre.pv-mermaid-error').textContent.startsWith('Mermaid: '),
+          after: document.querySelector('#root > p').textContent,
+          stray: document.querySelectorAll('body > :not(#root):not(script)').length,
+        })]]
+      )
+      assert.are.same({ error = true, after = "After.", stray = 0 }, got)
+    end)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',

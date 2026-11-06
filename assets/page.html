@@ -22,6 +22,14 @@
   html[data-background="transparent"] .markdown-body { background: transparent; }
   /* GitHub draws the footnote back arrow in a monospace font */
   .markdown-body .footnotes .data-footnote-backref { font-family: monospace; }
+  .markdown-body .pv-mermaid { margin-bottom: 16px; text-align: center; }
+  .markdown-body .pv-mermaid-error {
+    text-align: left;
+    white-space: pre-wrap;
+    color: var(--fgColor-danger);
+    background: var(--bgColor-danger-muted);
+    border: 1px solid var(--borderColor-danger-emphasis);
+  }
 </style>
 <style id="pv-user-css"></style>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
