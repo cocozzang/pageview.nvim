@@ -4,7 +4,8 @@
 -- `/` and `?` use Neovim's own search command line, so history and command
 -- line plugins work as usual. When it is submitted in a page buffer, the
 -- command is cancelled before Neovim searches the (empty) page lines, and the
--- source is searched instead. `n` and `N` are mapped in page buffers. The last
+-- source is searched instead. While typing, the page follows the pattern when
+-- 'incsearch' is on. `n` and `N` are mapped in page buffers. The last
 -- pattern and direction are shared with normal searches, so a search started
 -- in the raw buffer continues in the page and back.
 
@@ -204,6 +205,81 @@ function M.submit(page, win, text, forward)
   end
   remember(pat, forward)
   M.run(page, win, pat, forward)
+end
+
+---@class pageview.Typing a search being typed in a page
+---@field page pageview.Page
+---@field win integer
+---@field forward boolean
+---@field from { line: integer, col: integer }
+---@field exact boolean
+---@field view table page window view before typing
+---@field match? { line: integer, col: integer } mark before typing
+---@field incsearch boolean the user's 'incsearch'
+
+---@type pageview.Typing?
+local typing
+
+--- `/` or `?` started in a page. Neovim's own 'incsearch' is turned off while
+--- typing (it would search the empty page lines); with it on, the page
+--- follows the pattern instead.
+---@param page pageview.Page
+---@param win integer
+---@param forward boolean
+function M.enter(page, win, forward)
+  local view = require("pageview.view")
+  local from, exact = view.cursor_source(page, win)
+  typing = {
+    page = page,
+    win = win,
+    forward = forward,
+    from = from,
+    exact = exact,
+    view = api.nvim_win_call(win, vim.fn.winsaveview),
+    match = page.match,
+    incsearch = vim.o.incsearch,
+  }
+  vim.o.incsearch = false
+end
+
+---@param t pageview.Typing
+local function restore(t)
+  if api.nvim_win_is_valid(t.win) then
+    api.nvim_win_call(t.win, function()
+      vim.fn.winrestview(t.view)
+    end)
+  end
+  require("pageview.view").set_match(t.page, t.match)
+end
+
+--- The search text changed: show where it would go, or where we started.
+---@param text string
+function M.changed(text)
+  local t = typing
+  if not (t and t.incsearch and t.page.layout and api.nvim_win_is_valid(t.win)) then
+    return
+  end
+  -- a pattern that is not finished yet (an open "\(") is just not found
+  local match = text ~= "" and M.find(t.page.raw, text, t.forward, t.from, t.forward and not t.exact)
+  if match then
+    local view = require("pageview.view")
+    view.preview(t.page, t.win, match.line)
+    view.set_match(t.page, { line = match.line, col = match.col })
+  else
+    restore(t)
+  end
+  vim.cmd.redraw()
+end
+
+--- The search command line is left: put the page back as it was. The search
+--- itself, if submitted, then starts from there.
+function M.leave()
+  local t = typing
+  typing = nil
+  if t then
+    vim.o.incsearch = t.incsearch
+    restore(t)
+  end
 end
 
 --- `n` (reverse = false) or `N` in a page buffer.

@@ -54,7 +54,8 @@ rendered when you open it and again when the window width changes; unchanged pag
 In a page, `/` and `?` search the Markdown source and move the cursor to the row where the match is drawn. `n` and
 `N` go to the next and previous match. The last pattern, the search history and the direction are shared with normal
 searches, so a search started in the raw buffer continues in the page and back. `'ignorecase'`, `'smartcase'` and
-`'wrapscan'` apply. Switching to raw after a search puts the cursor on the match.
+`'wrapscan'` apply. With `'incsearch'`, the page follows the pattern while you type it, and `<Esc>` goes back. The
+match count shows at the right as usual. Switching to raw after a search puts the cursor on the match.
 
 The page is an image, so the matched word itself cannot be highlighted. A bar in the left margin of the article marks
 where the match is: beside the line for code, beside the paragraph (or list item, table row, heading) for text. It

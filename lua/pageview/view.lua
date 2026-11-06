@@ -179,6 +179,9 @@ local function show_slice(page, index, path)
     })
   end
   set_status(page, nil)
+  if api.nvim_get_mode().mode == "c" then
+    vim.cmd.redraw() -- the screen is not updated on its own while typing a search
+  end
 end
 
 --- Rows (1-based) that should have images: the visible rows plus one screen
@@ -373,6 +376,16 @@ function M.jump(page, win, line, col)
     api.nvim_win_set_cursor(win, { lnum, 0 })
   end)
   page.placed = { key = page.key, row = lnum, line = line, col = col }
+end
+
+--- Show the page where a source line is drawn, without making it a jump:
+--- for following a search while it is typed.
+---@param page pageview.Page
+---@param win integer
+---@param line integer 1-based
+function M.preview(page, win, line)
+  api.nvim_win_set_cursor(win, { page_line(assert(page.layout), line), 0 })
+  update_visible(page, win)
 end
 
 --- Highlight of the match mark: the foreground of `PageviewMatch` if it is
@@ -793,8 +806,29 @@ function M.setup_autocmds()
       end
     end,
   })
-  -- `/` and `?` in a page: cancel Neovim's search of the empty page lines and
-  -- search the source instead (see search.lua).
+  -- `/` and `?` in a page: follow the pattern while it is typed, then cancel
+  -- Neovim's search of the empty page lines and search the source instead
+  -- (see search.lua).
+  api.nvim_create_autocmd("CmdlineEnter", {
+    group = group,
+    pattern = { "/", "?" },
+    callback = function()
+      local win = api.nvim_get_current_win()
+      local page = pages[api.nvim_win_get_buf(win)]
+      if page then
+        require("pageview.search").enter(page, win, vim.v.event.cmdtype == "/")
+      end
+    end,
+  })
+  api.nvim_create_autocmd("CmdlineChanged", {
+    group = group,
+    pattern = { "/", "?" },
+    callback = function()
+      if pages[api.nvim_get_current_buf()] then
+        require("pageview.search").changed(vim.fn.getcmdline())
+      end
+    end,
+  })
   api.nvim_create_autocmd("CmdlineLeave", {
     group = group,
     pattern = { "/", "?" },
@@ -806,6 +840,7 @@ function M.setup_autocmds()
       end
       local event = vim.v.event
       local text = vim.fn.getcmdline()
+      require("pageview.search").leave()
       vim.cmd("let v:event.abort = v:true")
       if event.abort then
         return -- <Esc> or Ctrl-C

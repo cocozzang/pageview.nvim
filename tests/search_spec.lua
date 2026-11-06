@@ -263,6 +263,54 @@ describe("search in the page", function()
     end)
   end)
 
+  describe("while typing", function()
+    local seen ---@type integer[]
+
+    before_each(function()
+      seen = {}
+      _G.pageview_probe = function()
+        seen[#seen + 1] = vim.fn.line(".")
+      end
+    end)
+
+    after_each(function()
+      _G.pageview_probe = nil
+      vim.o.incsearch = true
+    end)
+
+    local probe = "<Cmd>lua pageview_probe()<CR>"
+
+    ---@param lnum integer source line
+    local function row_of(lnum)
+      return math.floor(position.row(page.layout.blocks, lnum - 1) + 0.5) + 1
+    end
+
+    it_browser("the page follows the pattern, and goes back on <Esc>", function()
+      local start = vim.fn.line(".")
+      local target = row_of((where("target", 1)))
+      type_keys("/targ" .. probe .. "<C-u>" .. probe .. "target" .. probe .. "<Esc>")
+      assert.are.same({ target, start, target }, seen)
+      assert.are.equal(start, vim.fn.line("."))
+      assert.is_true(vim.o.incsearch) -- Neovim's own is turned back on
+    end)
+
+    it_browser("the search then starts where typing started, as one jump", function()
+      local start = vim.fn.line(".")
+      search("/target<CR>")
+      at(where("target", 1))
+      type_keys("<C-o>")
+      assert.are.equal(start, vim.fn.line("."))
+    end)
+
+    it_browser("the page stays put without 'incsearch'", function()
+      vim.o.incsearch = false
+      local start = vim.fn.line(".")
+      type_keys("/target" .. probe .. "<Esc>")
+      assert.are.same({ start }, seen)
+      assert.is_false(vim.o.incsearch)
+    end)
+  end)
+
   it_browser("lands on the match when switching to raw", function()
     search("/target<CR>")
     at(where("target", 1))
