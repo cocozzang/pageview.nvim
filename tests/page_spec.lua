@@ -81,6 +81,29 @@ describe("page", function()
     assert.are.equal(40, width)
   end)
 
+  describe("code blocks", function()
+    local count = "document.querySelectorAll('#root pre code span[class^=hljs-]').length"
+    local keyword_color = "getComputedStyle(document.querySelector('#root .hljs-keyword')).color"
+
+    it_browser("are colored by language", function()
+      assert.is_true(page("```lua\nlocal x = 1 -- one\n```", count) > 0)
+    end)
+
+    it_browser("accept GitHub's names for Vim script", function()
+      assert.is_true(page("```viml\nset number\n```", count) > 0)
+    end)
+
+    it_browser("stay plain without a known language", function()
+      assert.are.equal(0, page("```nope\nlocal x = 1\n```\n\n```\nlocal x = 1\n```", count))
+    end)
+
+    it_browser("follow the theme", function()
+      local src = "```lua\nlocal x = 1\n```"
+      assert.are.equal("rgb(255, 123, 114)", page(src, keyword_color, { theme = "github-dark" }))
+      assert.are.equal("rgb(215, 58, 73)", page(src, keyword_color, { theme = "github-light" }))
+    end)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',

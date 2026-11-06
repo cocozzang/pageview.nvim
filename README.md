@@ -57,6 +57,15 @@ changes; unchanged pages come from the cache.
 sections = { lualine_x = { function() return require("pageview").status() end } }
 ```
 
+## Supported Markdown
+
+- CommonMark with GitHub's tables, strikethrough and bare URL links
+- Code blocks colored by [highlight.js](https://highlightjs.org/) (its common languages and Vim script)
+- Inline HTML, with scripts and event handlers removed
+- Images and links relative to the file's folder
+
+`tests/fixtures/showcase.md` shows all of it in one document.
+
 ## Configuration
 
 ```lua
@@ -82,8 +91,8 @@ Run `:checkhealth pageview` if something does not show up.
 ## How it works
 
 1. The buffer text goes to a page shell with [markdown-it](https://github.com/markdown-it/markdown-it),
-   [DOMPurify](https://github.com/cure53/DOMPurify) and
-   [github-markdown-css](https://github.com/sindresorhus/github-markdown-css), loaded in a headless browser started
+   [DOMPurify](https://github.com/cure53/DOMPurify),
+   [github-markdown-css](https://github.com/sindresorhus/github-markdown-css) and highlight.js, loaded in a headless browser started
    with `--remote-debugging-pipe` and driven over the Chrome DevTools Protocol.
 2. The page is laid out at the window width, with one terminal cell mapped to a fixed number of CSS pixels.
 3. Slices of the page near the visible rows are captured as PNG files and sent to the terminal with the kitty
