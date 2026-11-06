@@ -212,6 +212,10 @@
       securityLevel: "strict",
       suppressErrorRendering: true,
       theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+      // Mermaid 12 lays diagrams out with ELK in its "neo" look: right-angled
+      // edges and shadows. GitHub draws the classic look with dagre's curves.
+      look: "classic",
+      layout: "dagre",
     });
     for (const block of blocks) {
       try {
