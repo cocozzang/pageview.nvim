@@ -32,6 +32,12 @@ A bare URL becomes a link too: https://neovim.io
 2. Second
 3. Third
 
+Task list:
+
+- [x] Done
+- [ ] Not yet
+  - [ ] Nested
+
 ## Quote
 
 > A blockquote with **bold** text.

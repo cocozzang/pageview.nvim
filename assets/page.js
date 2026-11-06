@@ -15,6 +15,9 @@
 
   const md = window.markdownit({ html: true, linkify: true, highlight });
 
+  // GitHub extensions
+  md.use(window.markdownitTaskLists); // - [ ] / - [x], as disabled checkboxes
+
   // Tag block elements with the source line they start at (0-based).
   // Used to keep the reading position when switching between raw and page.
   md.core.ruler.push("pageview_source_line", (state) => {

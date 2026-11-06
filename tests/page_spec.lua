@@ -104,6 +104,15 @@ describe("page", function()
     end)
   end)
 
+  it_browser("renders task lists as checkboxes", function()
+    local boxes = page(
+      "- [ ] todo\n- [x] done\n- plain",
+      "[...document.querySelectorAll('#root li.task-list-item > input.task-list-item-checkbox')]"
+        .. ".map((c) => c.checked && c.disabled ? 'checked' : c.disabled ? 'empty' : 'enabled')"
+    )
+    assert.are.same({ "empty", "checked" }, boxes)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',
