@@ -18,7 +18,8 @@ M.SLICE_ROWS = 48
 -- 2: captures from a fresh tab (version 1 could cache tiled images)
 -- 3: blocks with their first and end lines instead of start lines
 -- 4: evenly spaced blocks, mark_col and bg
-M.VERSION = 4
+-- 5: links
+M.VERSION = 5
 
 ---@class pageview.RenderParams
 ---@field src string markdown source
@@ -39,6 +40,12 @@ M.VERSION = 4
 --- `[5]` is 1 when the lines are evenly spaced (the lines of a code block).
 ---@alias pageview.Block number[]
 
+---@class pageview.Link
+---@field href string as written in the document
+---@field url string resolved against the document's folder
+---@field text string
+---@field rows number[][] { top, bottom } rows (0-based, fractional), one per line it wraps over
+
 ---@class pageview.Layout
 ---@field version integer
 ---@field total_rows integer
@@ -52,6 +59,7 @@ M.VERSION = 4
 ---@field blocks pageview.Block[] in document order
 ---@field mark_col integer window column in the article's left padding, for marks
 ---@field bg? string article background as "#rrggbb", nil when transparent
+---@field links pageview.Link[] in document order
 
 --- Device pixels per CSS pixel: follow the terminal font (snacks.nvim uses the
 --- same cell_width / 8 guess), then apply the zoom.
@@ -87,7 +95,7 @@ end
 
 --- Turn the browser's measurements (CSS px) into a cell layout.
 ---@param p pageview.RenderParams
----@param m { height: number, left: number, articleWidth: number, padLeft?: number, background?: string, blocks: number[][] }
+---@param m { height: number, left: number, articleWidth: number, padLeft?: number, background?: string, blocks: number[][], links?: any[][] }
 ---@return pageview.Layout
 function M.plan(p, m)
   local dpr = M.scale(p.cell_width, p.zoom)
@@ -108,6 +116,14 @@ function M.plan(p, m)
   for _, b in ipairs(m.blocks) do
     blocks[#blocks + 1] = { b[1], b[2], row(b[3]), row(b[4]), b[5] }
   end
+  local links = {}
+  for _, l in ipairs(m.links or {}) do
+    local rows = {}
+    for _, box in ipairs(l[4]) do
+      rows[#rows + 1] = { row(box[1]), row(box[2]) }
+    end
+    links[#links + 1] = { href = l[1], url = l[2], text = l[3], rows = rows }
+  end
   local mark_col = math.floor((m.left + (m.padLeft or 0) / 2) * dpr / cw + 1e-6)
   return {
     version = M.VERSION,
@@ -122,6 +138,7 @@ function M.plan(p, m)
     blocks = blocks,
     mark_col = math.max(0, math.min(p.cols - 1, mark_col)),
     bg = M.hex_color(m.background),
+    links = links,
   }
 end
 

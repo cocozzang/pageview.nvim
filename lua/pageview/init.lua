@@ -52,6 +52,17 @@ function M.search_next(reverse)
   end
 end
 
+--- In a page: open the link on the cursor row, like `gx`. With several, pick
+--- one; with none, switch to raw at that line.
+function M.open_link()
+  init()
+  local win = vim.api.nvim_get_current_win()
+  local page = require("pageview.view").get(vim.api.nvim_win_get_buf(win))
+  if page then
+    require("pageview.links").open(page, win)
+  end
+end
+
 --- "PAGE" in a page buffer, "RAW" in a buffer that can be shown as a page,
 --- "" elsewhere. For statuslines.
 ---@param buf? integer

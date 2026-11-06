@@ -300,8 +300,25 @@
       padLeft: parseFloat(getComputedStyle(root).paddingLeft) || 0,
       background: bg,
       blocks: measureBlocks(),
+      links: measureLinks(),
     };
   };
+
+  // Links and where they are drawn: [href as written, resolved URL, text,
+  // [[top, bottom], ...]] in CSS pixels, one box per line a link wraps over.
+  function measureLinks() {
+    const y = window.scrollY;
+    const links = [];
+    for (const a of root.querySelectorAll("a[href]")) {
+      if (!a.checkVisibility()) continue;
+      const boxes = [...a.getClientRects()].filter((r) => r.height > 0).map((r) => [r.top + y, r.bottom + y]);
+      if (boxes.length === 0) continue;
+      const img = a.querySelector("img");
+      const text = a.textContent.trim() || (img && img.alt) || "";
+      links.push([a.getAttribute("href"), a.href, text.slice(0, 100), boxes]);
+    }
+    return links;
+  }
 
   // Where each tagged block is drawn: [first line, end line, top, bottom] in
   // document order, in CSS pixels. A code block is reported twice: the whole

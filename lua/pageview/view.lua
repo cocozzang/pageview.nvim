@@ -625,6 +625,9 @@ local function create(raw)
     end
     map("n", false, "Next match in the source")
     map("N", true, "Previous match in the source")
+    vim.keymap.set("n", "gx", function()
+      require("pageview.links").open(page, api.nvim_get_current_win())
+    end, { buffer = buf, desc = "Open the link on this row" })
   end
 
   api.nvim_create_autocmd("BufWipeout", {
