@@ -142,24 +142,37 @@ function M.terminal_font()
   return terminal_font or nil
 end
 
+--- Hash of the files in an assets folder: every file outside `vendor/`, and
+--- `vendor/VERSIONS` for the bundled libraries (their files only change with it).
+---@param dir string
+---@return string
+function M.fingerprint(dir)
+  local names = {}
+  for name, kind in vim.fs.dir(dir, { depth = math.huge }) do
+    if kind == "file" and (not vim.startswith(name, "vendor/") or name == "vendor/VERSIONS") then
+      names[#names + 1] = name
+    end
+  end
+  table.sort(names)
+  local parts = {}
+  for _, name in ipairs(names) do
+    local fd = io.open(dir .. "/" .. name, "rb")
+    parts[#parts + 1] = name .. "\n" .. (fd and fd:read("*a") or "")
+    if fd then
+      fd:close()
+    end
+  end
+  -- vim.fn would turn a string with NUL bytes into a Blob
+  local all = table.concat(parts, "\n--\n"):gsub("%z", "\\0")
+  return vim.fn.sha256(all):sub(1, 16)
+end
+
 ---@type string?
 local fingerprint
---- Hash of the page shell and bundled libraries, so updates invalidate the cache.
+--- Fingerprint of the bundled assets, so updates invalidate the cache.
 ---@return string
 function M.assets_fingerprint()
-  if not fingerprint then
-    local dir = browser.assets_dir()
-    local parts = {}
-    for _, f in ipairs({ "page.html", "page.js", "vendor/VERSIONS" }) do
-      local fd = io.open(dir .. "/" .. f, "rb")
-      parts[#parts + 1] = fd and fd:read("*a") or ""
-      if fd then
-        fd:close()
-      end
-    end
-    -- (no NUL bytes: vim.fn would turn the string into a Blob)
-    fingerprint = vim.fn.sha256(table.concat(parts, "\n--\n")):sub(1, 16)
-  end
+  fingerprint = fingerprint or M.fingerprint(browser.assets_dir())
   return fingerprint
 end
 
