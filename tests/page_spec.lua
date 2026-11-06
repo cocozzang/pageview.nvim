@@ -113,6 +113,24 @@ describe("page", function()
     assert.are.same({ "empty", "checked" }, boxes)
   end)
 
+  it_browser("renders footnotes with GitHub's markup", function()
+    local got = page(
+      "Text[^a] and more[^a].\n\n[^a]: The note.",
+      [[(() => {
+        const refs = [...document.querySelectorAll('#root sup > a[data-footnote-ref]')];
+        const section = document.querySelector('#root section.footnotes[data-footnotes]');
+        return {
+          refs: refs.map((a) => a.textContent),
+          before: getComputedStyle(refs[0], '::before').content,
+          note: section.querySelector('li p').firstChild.textContent.trim(),
+          backrefs: section.querySelectorAll('a.data-footnote-backref').length,
+          rules: document.querySelectorAll('#root hr').length,
+        };
+      })()]]
+    )
+    assert.are.same({ refs = { "1", "1" }, before = '"["', note = "The note.", backrefs = 2, rules = 0 }, got)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',

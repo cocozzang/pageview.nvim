@@ -38,6 +38,13 @@ Task list:
 - [ ] Not yet
   - [ ] Nested
 
+## Footnotes
+
+A sentence with a footnote[^1] and another one[^note].
+
+[^1]: The first footnote.
+[^note]: A named footnote. Footnotes are listed at the end of the document.
+
 ## Quote
 
 > A blockquote with **bold** text.

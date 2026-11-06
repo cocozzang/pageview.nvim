@@ -18,6 +18,22 @@
   // GitHub extensions
   md.use(window.markdownitTaskLists); // - [ ] / - [x], as disabled checkboxes
 
+  // Footnotes, with GitHub's markup so github-markdown-css styles them: the
+  // brackets around the number come from CSS, and no rule above the list.
+  md.use(window.markdownitFootnote);
+  const footnoteId = (tokens, idx) => {
+    const { id, subId } = tokens[idx].meta;
+    return String(id + 1) + (subId > 0 ? ":" + subId : "");
+  };
+  md.renderer.rules.footnote_ref = (tokens, idx) => {
+    const n = String(tokens[idx].meta.id + 1);
+    return `<sup><a href="#fn${n}" id="fnref${footnoteId(tokens, idx)}" data-footnote-ref>${n}</a></sup>`;
+  };
+  md.renderer.rules.footnote_block_open = () => '<section class="footnotes" data-footnotes>\n<ol>\n';
+  md.renderer.rules.footnote_block_close = () => "</ol>\n</section>\n";
+  md.renderer.rules.footnote_anchor = (tokens, idx) =>
+    ` <a href="#fnref${footnoteId(tokens, idx)}" class="data-footnote-backref">↩︎</a>`;
+
   // Tag block elements with the source line they start at (0-based).
   // Used to keep the reading position when switching between raw and page.
   md.core.ruler.push("pageview_source_line", (state) => {

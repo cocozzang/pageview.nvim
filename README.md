@@ -61,6 +61,7 @@ sections = { lualine_x = { function() return require("pageview").status() end } 
 
 - CommonMark with GitHub's tables, strikethrough and bare URL links
 - Task lists (`- [ ]`, `- [x]`)
+- Footnotes (`[^1]`)
 - Code blocks colored by [highlight.js](https://highlightjs.org/) (its common languages and Vim script)
 - Inline HTML, with scripts and event handlers removed
 - Images and links relative to the file's folder
