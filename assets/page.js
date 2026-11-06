@@ -301,8 +301,25 @@
       background: bg,
       blocks: measureBlocks(),
       links: measureLinks(),
+      anchors: measureAnchors(),
     };
   };
+
+  // Where in-page links can go: the top of every element with an id (headings,
+  // footnotes, the document's own HTML) or a name, in CSS pixels. Diagram and
+  // formula internals are left out.
+  function measureAnchors() {
+    const y = window.scrollY;
+    const anchors = {};
+    for (const el of root.querySelectorAll("[id], a[name]")) {
+      if (el.closest("svg, .katex") || !el.checkVisibility()) continue;
+      const top = el.getBoundingClientRect().top + y;
+      for (const name of [el.id, el.getAttribute("name")]) {
+        if (name && !(name in anchors)) anchors[name] = top;
+      }
+    }
+    return anchors;
+  }
 
   // Links and where they are drawn: [href as written, resolved URL, text,
   // [[top, bottom], ...]] in CSS pixels, one box per line a link wraps over.

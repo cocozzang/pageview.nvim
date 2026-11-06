@@ -30,7 +30,13 @@ describe("links in the page", function()
     "Plain text without links.", -- 7
     "",
     "[picture](pic.png) and [missing](gone.md)", -- 9
+    "",
+    "[To the end](#the-end) and [self](doc.md#the-end)", -- 11
   }
+  for i = 1, 40 do
+    vim.list_extend(lines, { "", ("Filler %d."):format(i) })
+  end
+  vim.list_extend(lines, { "", "## The End", "", "Done[^1] [nowhere](#nowhere).", "", "[^1]: The note." })
   local page ---@type pageview.Page
   local opened ---@type string[]
   local notified ---@type string[]
@@ -87,13 +93,15 @@ describe("links in the page", function()
 
   --- Put the page cursor on the row of a link and press gx.
   ---@param href string
+  ---@return integer row the cursor was put on
   local function gx_on(href)
     for _, link in ipairs(page.layout.links) do
       if link.href == href then
         local r = link.rows[1]
-        vim.api.nvim_win_set_cursor(0, { math.floor((r[1] + r[2]) / 2) + 1, 0 })
+        local row = math.floor((r[1] + r[2]) / 2) + 1
+        vim.api.nvim_win_set_cursor(0, { row, 0 })
         type_keys("gx")
-        return
+        return row
       end
     end
     error("no link " .. href)
@@ -103,7 +111,18 @@ describe("links in the page", function()
     local hrefs = vim.tbl_map(function(l)
       return l.href
     end, page.layout.links)
-    assert.are.same({ "https://example.com/one", "https://example.com/a", "./other.md", "pic.png", "gone.md" }, hrefs)
+    assert.are.same({
+      "https://example.com/one",
+      "https://example.com/a",
+      "./other.md",
+      "pic.png",
+      "gone.md",
+      "#the-end",
+      "doc.md#the-end",
+      "#fn1",
+      "#nowhere",
+      "#fnref1", -- the footnote's way back
+    }, hrefs)
     assert.are.equal("one", page.layout.links[1].text)
     assert.are.equal(vim.uri_from_fname(dir) .. "/other.md", page.layout.links[3].url)
   end)
@@ -151,5 +170,50 @@ describe("links in the page", function()
     assert.is_nil(view.get(vim.api.nvim_get_current_buf()))
     assert.are.equal(7, vim.fn.line("."))
     assert.are.same({}, opened)
+  end)
+
+  describe("inside the page", function()
+    --- Pick the n-th link when gx offers several.
+    local function pick(n)
+      vim.ui.select = function(items, _, choose)
+        choose(items[n])
+      end
+    end
+
+    ---@param name string
+    local function anchor_row(name)
+      return math.floor(page.layout.anchors[name] + 0.5) + 1
+    end
+
+    it_browser("go to the heading, at the top of the window, as a jump", function()
+      pick(1)
+      local start = gx_on("#the-end")
+      local row = anchor_row("user-content-the-end")
+      assert.are.equal(row, vim.fn.line("."))
+      assert.are.equal(row - vim.o.scrolloff, vim.fn.line("w0"))
+      type_keys("<C-o>")
+      assert.are.equal(start, vim.fn.line("."))
+    end)
+
+    it_browser("stay on the page for links to the same document", function()
+      pick(2)
+      gx_on("doc.md#the-end")
+      assert.are.equal(page.buf, vim.api.nvim_get_current_buf())
+      assert.are.equal(anchor_row("user-content-the-end"), vim.fn.line("."))
+    end)
+
+    it_browser("go to footnotes and back", function()
+      pick(1)
+      gx_on("#fn1")
+      assert.are.equal(anchor_row("fn1"), vim.fn.line("."))
+      gx_on("#fnref1")
+      assert.are.equal(anchor_row("fnref1"), vim.fn.line("."))
+    end)
+
+    it_browser("report a name that is not on the page", function()
+      pick(2)
+      gx_on("#nowhere")
+      assert.matches("#nowhere", notified[1])
+    end)
   end)
 end)

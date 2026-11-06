@@ -378,6 +378,20 @@ function M.jump(page, win, line, col)
   page.placed = { key = page.key, row = lnum, line = line, col = col }
 end
 
+--- Jump to a page line and show it at the top of the window, as a browser
+--- does for an in-page link. `''` and Ctrl-O come back.
+---@param page pageview.Page
+---@param win integer
+---@param lnum integer 1-based
+function M.jump_row(page, win, lnum)
+  lnum = math.max(1, math.min(api.nvim_buf_line_count(page.buf), lnum))
+  api.nvim_win_call(win, function()
+    vim.cmd("normal! m'")
+    api.nvim_win_set_cursor(win, { lnum, 0 })
+    vim.cmd("normal! zt")
+  end)
+end
+
 --- Show the page where a source line is drawn, without making it a jump:
 --- for following a search while it is typed.
 ---@param page pageview.Page

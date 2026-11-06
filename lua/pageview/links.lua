@@ -51,13 +51,41 @@ function M.on_row(layout, row)
   return #mostly > 0 and mostly or touching
 end
 
---- Open a link: web and mail links with the system's handler, files of the
---- document's folder in Neovim (pictures, PDFs and such with the system's
---- viewer).
+---@param s string
+---@return string
+local function percent_decode(s)
+  return (s:gsub("%%(%x%x)", function(hex)
+    return string.char(tonumber(hex, 16))
+  end))
+end
+
+--- Go to the heading, footnote or anchor a fragment ("#install") names, as a
+--- jump, with it at the top of the window.
+---@param page pageview.Page
+---@param win integer
+---@param fragment string without the "#"
+function M.go_to(page, win, fragment)
+  local name = percent_decode(fragment)
+  local anchors = page.layout.anchors or {}
+  local top = anchors["user-content-" .. name] or anchors[name] or anchors["user-content-" .. name:lower()]
+  if not top then
+    notify("nothing on this page is called #" .. name)
+    return
+  end
+  require("pageview.view").jump_row(page, win, math.floor(top + 0.5) + 1)
+end
+
+--- Open a link: in-page links on the page, web and mail links with the
+--- system's handler, files of the document's folder in Neovim (pictures, PDFs
+--- and such with the system's viewer).
 ---@param page pageview.Page
 ---@param win integer
 ---@param link pageview.Link
 function M.follow(page, win, link)
+  if link.href:sub(1, 1) == "#" then
+    M.go_to(page, win, link.href:sub(2))
+    return
+  end
   local scheme = link.url:match("^(%a[%w+.-]*):")
   if scheme ~= "file" then
     local _, err = vim.ui.open(link.url)
@@ -71,6 +99,12 @@ function M.follow(page, win, link)
     return
   end
   local path = vim.uri_to_fname((link.url:gsub("[?#].*$", "")))
+  local fragment = link.url:match("#(.*)$")
+  local raw_name = api.nvim_buf_get_name(page.raw)
+  if fragment and raw_name ~= "" and uv.fs_realpath(path) == uv.fs_realpath(raw_name) then
+    M.go_to(page, win, fragment) -- this document: stay on the page
+    return
+  end
   local st = uv.fs_stat(path)
   if not st then
     notify("no such file: " .. vim.fn.fnamemodify(path, ":~:."))

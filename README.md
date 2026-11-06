@@ -74,6 +74,9 @@ The source is searched, not the rendered text, so Markdown syntax and link targe
 Neovim (pictures, PDFs and such with the system's viewer). With several links on the row you pick one; with none,
 `gx` switches to raw at that line.
 
+Links within the document (a table of contents, footnotes) stay on the page and bring the heading or footnote to the
+top of the window; `Ctrl-O` goes back. Headings get the same anchors as on GitHub (`#installation`, `#설치-방법`).
+
 ### Keys
 
 `n`, `N` and `gx` are mapped in page buffers only. With `keymaps = false` they are left unmapped, and you can map

@@ -19,7 +19,8 @@ M.SLICE_ROWS = 48
 -- 3: blocks with their first and end lines instead of start lines
 -- 4: evenly spaced blocks, mark_col and bg
 -- 5: links
-M.VERSION = 5
+-- 6: anchors
+M.VERSION = 6
 
 ---@class pageview.RenderParams
 ---@field src string markdown source
@@ -60,6 +61,7 @@ M.VERSION = 5
 ---@field mark_col integer window column in the article's left padding, for marks
 ---@field bg? string article background as "#rrggbb", nil when transparent
 ---@field links pageview.Link[] in document order
+---@field anchors table<string, number> element id or name -> top row (0-based, fractional)
 
 --- Device pixels per CSS pixel: follow the terminal font (snacks.nvim uses the
 --- same cell_width / 8 guess), then apply the zoom.
@@ -95,7 +97,7 @@ end
 
 --- Turn the browser's measurements (CSS px) into a cell layout.
 ---@param p pageview.RenderParams
----@param m { height: number, left: number, articleWidth: number, padLeft?: number, background?: string, blocks: number[][], links?: any[][] }
+---@param m { height: number, left: number, articleWidth: number, padLeft?: number, background?: string, blocks: number[][], links?: any[][], anchors?: table<string, number> }
 ---@return pageview.Layout
 function M.plan(p, m)
   local dpr = M.scale(p.cell_width, p.zoom)
@@ -124,6 +126,10 @@ function M.plan(p, m)
     end
     links[#links + 1] = { href = l[1], url = l[2], text = l[3], rows = rows }
   end
+  local anchors = {}
+  for name, top in pairs(m.anchors or {}) do
+    anchors[name] = row(top)
+  end
   local mark_col = math.floor((m.left + (m.padLeft or 0) / 2) * dpr / cw + 1e-6)
   return {
     version = M.VERSION,
@@ -139,6 +145,7 @@ function M.plan(p, m)
     mark_col = math.max(0, math.min(p.cols - 1, mark_col)),
     bg = M.hex_color(m.background),
     links = links,
+    anchors = anchors,
   }
 end
 
