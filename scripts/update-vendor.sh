@@ -70,6 +70,10 @@ grep -v '^#' "$vendor/VERSIONS" | while read -r name version; do
     fetch "$name" "$version" texmath.js markdown-it-texmath/texmath.js
     fetch "$name" "$version" license.txt markdown-it-texmath/LICENSE
     ;;
+  mermaid)
+    fetch "$name" "$version" dist/mermaid.min.js mermaid/mermaid.min.js
+    fetch "$name" "$version" LICENSE mermaid/LICENSE
+    ;;
   *)
     echo "unknown package: $name" >&2
     exit 1

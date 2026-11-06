@@ -120,4 +120,4 @@ Bundled libraries are pinned in `assets/vendor/VERSIONS` and updated with `scrip
 MIT. Bundled libraries keep their own licenses, included next to them in `assets/vendor/`:
 markdown-it (MIT), github-markdown-css (MIT), DOMPurify (Apache-2.0 or MPL-2.0), highlight.js (BSD-3-Clause),
 markdown-it-task-lists (ISC), markdown-it-footnote (MIT), markdown-it-emoji (MIT), Octicons (MIT), KaTeX (MIT),
-markdown-it-texmath (MIT).
+markdown-it-texmath (MIT), Mermaid (MIT).
