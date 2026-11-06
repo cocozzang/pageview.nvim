@@ -1,9 +1,10 @@
 -- The headless browser pageview renders with.
 --
 -- One browser per Neovim process, started on first use, kept running, and
--- closed after `browser_idle_timeout` seconds without work. Each Neovim
--- process uses its own profile folder: two browsers sharing one profile
--- would hand off to each other and the second pipe would never answer.
+-- closed after `browser_idle_timeout` seconds without work. Every launch gets
+-- its own profile folder: two browsers sharing one profile hand off to each
+-- other, so a new browser started while the last one is still shutting down
+-- would exit at once.
 
 local async = require("pageview.async")
 local cdp = require("pageview.cdp")
@@ -71,20 +72,52 @@ end
 ---@field session string CDP session of the rendering tab
 ---@field state? string key of the document currently laid out in the tab
 ---@field busy integer jobs running
+---@field profile string its profile folder, removed when it exits
 
 ---@type pageview.Browser?
 local current
 ---@type fun(err?: any, b?: pageview.Browser)[]?
 local waiting -- callbacks waiting for a launch in progress
 local idle_timer ---@type uv.uv_timer_t?
-local profile_dir ---@type string?
+local launches = 0
 
-local function profile()
-  if not profile_dir then
-    profile_dir =
-      vim.fs.joinpath(vim.fn.stdpath("cache") --[[@as string]], "pageview", ("profile-%d"):format(vim.fn.getpid()))
+---@return string
+local function new_profile()
+  launches = launches + 1
+  return vim.fs.joinpath(
+    vim.fn.stdpath("cache") --[[@as string]],
+    "pageview",
+    ("profile-%d-%d"):format(vim.fn.getpid(), launches)
+  )
+end
+
+--- Remove profile folders left behind. A browser's helper processes can still
+--- write to its folder after it exited and the folder was removed, and Neovim
+--- itself may have been killed. Before each launch, folders of this Neovim's
+--- earlier browsers and of Neovim processes that are gone are removed.
+---@param keep string the folder about to be used
+local function sweep_profiles(keep)
+  local root = vim.fs.dirname(keep)
+  if not uv.fs_stat(root) then
+    return
   end
-  return profile_dir
+  local me = vim.fn.getpid()
+  for name, kind in vim.fs.dir(root) do
+    local pid = kind == "directory" and tonumber(name:match("^profile%-(%d+)"))
+    if pid then
+      local path = vim.fs.joinpath(root, name)
+      local stale
+      if pid == me then
+        stale = path ~= keep and not (current and current.profile == path)
+      else
+        local ok, _, err = uv.kill(pid, 0)
+        stale = not ok and err == "ESRCH"
+      end
+      if stale then
+        vim.fn.delete(path, "rf")
+      end
+    end
+  end
 end
 
 local function call(client, method, params, session)
@@ -96,10 +129,12 @@ end
 ---@param path string
 ---@return pageview.Browser
 local function launch(path)
+  local dir = new_profile()
+  sweep_profiles(dir)
   local args = {
     "--headless=new",
     "--remote-debugging-pipe",
-    "--user-data-dir=" .. profile(),
+    "--user-data-dir=" .. dir,
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-extensions",
@@ -112,9 +147,14 @@ local function launch(path)
     "about:blank",
   }
   vim.list_extend(args, config.get().browser_args)
+  local b ---@type pageview.Browser?
   local client, err = cdp.spawn(path, args, {
     on_exit = function()
-      current = nil
+      -- An old browser can report its exit after a new one started.
+      if b and current == b then
+        current = nil
+      end
+      vim.fn.delete(dir, "rf")
     end,
   })
   if not client then
@@ -157,7 +197,8 @@ local function launch(path)
     client:close()
     error(res .. (client.stderr ~= "" and ("\n" .. client.stderr) or ""), 0)
   end
-  return { client = client, session = res, busy = 0 }
+  b = { client = client, session = res, busy = 0, profile = dir }
+  return b
 end
 
 local function arm_idle_timer()
@@ -276,21 +317,15 @@ function M.shutdown(sync)
   end
   local b = current
   current = nil
-  local dir = profile_dir
-  local function cleanup()
-    if dir then
-      vim.fn.delete(dir, "rf")
-    end
-  end
   if not b then
-    cleanup()
     return
   end
   if sync then
     b.client:close_sync(2000)
-    cleanup()
+    -- Neovim may be exiting: do not wait for the exit callback to remove it
+    vim.fn.delete(b.profile, "rf")
   else
-    b.client:close(cleanup)
+    b.client:close()
   end
 end
 
