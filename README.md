@@ -45,8 +45,9 @@ No keys are mapped by default. For example:
 vim.keymap.set("n", "<leader>um", "<cmd>Pageview toggle<cr>", { desc = "Toggle page view" })
 ```
 
-Switching keeps your reading position. The page is rendered when you open it and again when the window width
-changes; unchanged pages come from the cache.
+Switching keeps your reading position, also inside long paragraphs and code blocks: the line under the cursor stays
+at the same height in the window. Switching back without moving returns to exactly where you were. The page is
+rendered when you open it and again when the window width changes; unchanged pages come from the cache.
 
 ### Statusline
 

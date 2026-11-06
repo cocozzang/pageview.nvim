@@ -159,6 +159,70 @@ describe("page view", function()
     assert.is_true(page.layout.ncols <= vim.api.nvim_win_get_width(0))
   end)
 
+  describe("inside long blocks", function()
+    local long ---@type string
+    -- lines 3 and 84 are the fences, 4 to 83 the code
+    local CODE_LINE = 53
+
+    setup(function()
+      local lines = { "# Code", "", "```lua" }
+      for i = 1, 80 do
+        lines[#lines + 1] = ("local x%d = %d"):format(i, i)
+      end
+      vim.list_extend(lines, { "```", "", "## End", "", "Bye." })
+      long = vim.fn.tempname() .. ".md"
+      vim.fn.writefile(lines, long)
+    end)
+
+    teardown(function()
+      os.remove(long)
+    end)
+
+    ---@return pageview.Page
+    local function open_at(lnum, col, offset)
+      vim.cmd.edit(long)
+      vim.bo.filetype = "markdown"
+      vim.fn.winrestview({ lnum = lnum, col = col, topline = lnum - offset })
+      require("pageview").open()
+      local page = assert(view.get(vim.api.nvim_get_current_buf()))
+      assert.is_true(wait(30000, function()
+        return page.layout ~= nil
+      end))
+      return page
+    end
+
+    local function line_at_cursor(page)
+      return require("pageview.position").line(page.layout.blocks, vim.fn.line(".") - 0.5) + 1
+    end
+
+    it_browser("opens the page at the same code line and screen row", function()
+      local page = open_at(CODE_LINE, 4, 5)
+      assert.are.equal(CODE_LINE, line_at_cursor(page))
+      assert.are.equal(5, vim.fn.line(".") - vim.fn.line("w0"))
+      -- not the top of the block, which is about 60 rows up
+      assert.is_true(vim.fn.line(".") > 40)
+    end)
+
+    it_browser("switches back and forth to exactly the same places", function()
+      local page = open_at(CODE_LINE, 4, 5)
+      local row = vim.fn.line(".")
+      require("pageview").close()
+      assert.are.same({ CODE_LINE, 4 }, vim.api.nvim_win_get_cursor(0))
+      require("pageview").open()
+      assert.are.equal(page.buf, vim.api.nvim_get_current_buf())
+      assert.are.equal(row, vim.fn.line("."))
+    end)
+
+    it_browser("goes to the code line drawn at the page cursor", function()
+      local page = open_at(CODE_LINE, 0, 5)
+      vim.cmd("normal! 12j")
+      local expected = line_at_cursor(page)
+      assert.is_true(expected > CODE_LINE + 5 and expected <= CODE_LINE + 12, tostring(expected))
+      require("pageview").close()
+      assert.are.equal(expected, vim.fn.line("."))
+    end)
+  end)
+
   it("refuses non-markdown buffers", function()
     vim.bo[raw].filetype = "lua"
     require("pageview").open()
