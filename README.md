@@ -65,6 +65,8 @@ sections = { lualine_x = { function() return require("pageview").status() end } 
 - Alerts (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`)
 - Emoji shortcodes (`:tada:`)
 - Math with [KaTeX](https://katex.org/): `$…$` and `` $`…`$ `` inline, `$$…$$` and ` ```math ` blocks
+- [Mermaid](https://mermaid.js.org/) diagrams in ` ```mermaid ` blocks, drawn in the theme's colors. A broken diagram
+  shows its error in its place.
 - Code blocks colored by [highlight.js](https://highlightjs.org/) (its common languages and Vim script)
 - Inline HTML, with scripts and event handlers removed
 - Images and links relative to the file's folder

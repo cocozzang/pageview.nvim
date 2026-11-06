@@ -125,6 +125,25 @@ $$
 \end{aligned}
 ```
 
+## Diagrams
+
+```mermaid
+flowchart LR
+  raw[Raw buffer] -->|:Pageview toggle| render{Cached?}
+  render -->|yes| page[Page buffer]
+  render -->|no| browser[Headless browser] --> page
+```
+
+```mermaid
+sequenceDiagram
+  participant N as Neovim
+  participant B as Browser
+  N->>B: Runtime.evaluate(pageviewRender)
+  B-->>N: layout
+  N->>B: Page.captureScreenshot
+  B-->>N: PNG slice
+```
+
 ## Image
 
 A relative path, resolved against this file's folder:

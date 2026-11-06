@@ -2,6 +2,10 @@
 "use strict";
 
 (() => {
+  // Where page.html and vendor/ are. Absolute, because the document's
+  // <base href> changes what relative URLs mean.
+  const ASSETS = new URL(".", document.currentScript.src).href;
+
   // Code blocks are colored by highlight.js. Unknown languages stay plain.
   hljs.registerAliases(["viml", "vimscript"], { languageName: "vim" });
   function highlight(code, lang) {
@@ -52,6 +56,17 @@
     // HTML only: the MathML copy is for screen readers, and invisible here
     katexOptions: { output: "html", throwOnError: false },
   });
+
+  // Mermaid: a ```mermaid block keeps its source in a div, and becomes a
+  // diagram after the page is sanitized (see renderDiagrams).
+  const fence = md.renderer.rules.fence;
+  md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+    const token = tokens[idx];
+    if (token.info.trim().split(/\s+/)[0].toLowerCase() === "mermaid") {
+      return `<div class="pv-mermaid"${self.renderAttrs(token)}>${md.utils.escapeHtml(token.content)}</div>\n`;
+    }
+    return fence(tokens, idx, options, env, self);
+  };
 
   // Alerts: a top-level blockquote whose first line is only [!NOTE], [!TIP],
   // [!IMPORTANT], [!WARNING] or [!CAUTION] becomes GitHub's titled box.
@@ -152,6 +167,63 @@
 
   const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
+  const timeout = (ms, what) =>
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${what} took longer than ${ms / 1000}s`)), ms));
+
+  // Mermaid is 5.5 MB, so it is loaded the first time a document needs it.
+  let mermaidLoading = null;
+  function loadMermaid() {
+    mermaidLoading ||= new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = ASSETS + "vendor/mermaid/mermaid.min.js";
+      script.onload = () => resolve(window.mermaid);
+      script.onerror = () => {
+        mermaidLoading = null;
+        reject(new Error("could not load mermaid.min.js"));
+      };
+      document.head.append(script);
+    });
+    return mermaidLoading;
+  }
+
+  function showDiagramError(block, err) {
+    const pre = document.createElement("pre");
+    pre.className = "pv-mermaid-error";
+    pre.textContent = "Mermaid: " + (err && err.message ? err.message : String(err));
+    block.replaceChildren(pre);
+  }
+
+  // Draw every mermaid block, in the theme's colors. Resolves when all are
+  // drawn, so the capture never shows a half-drawn page. A broken diagram
+  // shows its error instead.
+  let diagrams = 0;
+  async function renderDiagrams() {
+    const blocks = [...root.querySelectorAll("div.pv-mermaid")];
+    if (blocks.length === 0) return;
+    let mermaid;
+    try {
+      mermaid = await Promise.race([loadMermaid(), timeout(10000, "Loading mermaid")]);
+    } catch (err) {
+      blocks.forEach((block) => showDiagramError(block, err));
+      return;
+    }
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      suppressErrorRendering: true,
+      theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+    });
+    for (const block of blocks) {
+      try {
+        const id = `pv-mermaid-${++diagrams}`;
+        const { svg } = await Promise.race([mermaid.render(id, block.textContent), timeout(10000, "The diagram")]);
+        block.innerHTML = svg;
+      } catch (err) {
+        showDiagramError(block, err);
+      }
+    }
+  }
+
   /**
    * Render markdown into the page and report its geometry in CSS pixels.
    * @param {string} src
@@ -169,6 +241,7 @@
     root.style.minHeight = "";
     root.innerHTML = DOMPurify.sanitize(md.render(src), { ADD_ATTR: ["target"] });
 
+    await renderDiagrams();
     await imagesLoaded(5000);
     // also waits for fonts the new content needs (KaTeX's, for example)
     await document.fonts.ready;
