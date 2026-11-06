@@ -161,6 +161,11 @@ describe("page", function()
     }, got)
   end)
 
+  it_browser("turns emoji shortcodes into emoji", function()
+    local text = page("Ship it :tada: :) :not_an_emoji: `:tada:`", "document.querySelector('#root p').textContent")
+    assert.are.equal("Ship it 🎉 :) :not_an_emoji: :tada:", text)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',

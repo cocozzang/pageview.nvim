@@ -10,6 +10,8 @@ A bare URL becomes a link too: https://neovim.io
 
 한글 문단도 섞어 둔다. 다람쥐 헌 쳇바퀴에 타고파.
 
+Emoji shortcodes: :tada: :rocket: :white_check_mark: and a literal emoji 👍
+
 ## Headings
 
 ### Third level

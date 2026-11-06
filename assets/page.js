@@ -17,6 +17,7 @@
 
   // GitHub extensions
   md.use(window.markdownitTaskLists); // - [ ] / - [x], as disabled checkboxes
+  md.use(window.markdownitEmoji, { shortcuts: {} }); // :tada:, but not :) as GitHub does not either
 
   // Footnotes, with GitHub's markup so github-markdown-css styles them: the
   // brackets around the number come from CSS, and no rule above the list.
