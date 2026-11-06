@@ -19,12 +19,18 @@
     font-family: var(--pv-code-font);
   }
   html[data-background="transparent"] .markdown-body { background: transparent; }
+  /* GitHub draws the footnote back arrow in a monospace font */
+  .markdown-body .footnotes .data-footnote-backref { font-family: monospace; }
 </style>
 <style id="pv-user-css"></style>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
 <script src="vendor/dompurify/purify.min.js"></script>
 <script src="vendor/highlight.js/highlight.min.js"></script>
 <script src="vendor/highlight.js/vim.min.js"></script>
+<script src="vendor/markdown-it-task-lists/markdown-it-task-lists.min.js"></script>
+<script src="vendor/markdown-it-footnote/markdown-it-footnote.min.js"></script>
+<script src="vendor/octicons/octicons.js"></script>
+<script src="vendor/markdown-it-emoji/markdown-it-emoji.min.js"></script>
 </head>
 <body>
 <article id="root" class="markdown-body"></article>

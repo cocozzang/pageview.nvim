@@ -10,6 +10,8 @@ A bare URL becomes a link too: https://neovim.io
 
 한글 문단도 섞어 둔다. 다람쥐 헌 쳇바퀴에 타고파.
 
+Emoji shortcodes: :tada: :rocket: :white_check_mark: and a literal emoji 👍
+
 ## Headings
 
 ### Third level
@@ -32,11 +34,41 @@ A bare URL becomes a link too: https://neovim.io
 2. Second
 3. Third
 
+Task list:
+
+- [x] Done
+- [ ] Not yet
+  - [ ] Nested
+
+## Footnotes
+
+A sentence with a footnote[^1] and another one[^note].
+
+[^1]: The first footnote.
+[^note]: A named footnote. Footnotes are listed at the end of the document.
+
 ## Quote
 
 > A blockquote with **bold** text.
 >
 > > And a nested one.
+
+## Alerts
+
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
 
 ## Table
 

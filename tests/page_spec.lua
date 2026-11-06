@@ -104,6 +104,68 @@ describe("page", function()
     end)
   end)
 
+  it_browser("renders task lists as checkboxes", function()
+    local boxes = page(
+      "- [ ] todo\n- [x] done\n- plain",
+      "[...document.querySelectorAll('#root li.task-list-item > input.task-list-item-checkbox')]"
+        .. ".map((c) => c.checked && c.disabled ? 'checked' : c.disabled ? 'empty' : 'enabled')"
+    )
+    assert.are.same({ "empty", "checked" }, boxes)
+  end)
+
+  it_browser("renders footnotes with GitHub's markup", function()
+    local got = page(
+      "Text[^a] and more[^a].\n\n[^a]: The note.",
+      [[(() => {
+        const refs = [...document.querySelectorAll('#root sup > a[data-footnote-ref]')];
+        const section = document.querySelector('#root section.footnotes[data-footnotes]');
+        return {
+          refs: refs.map((a) => a.textContent),
+          before: getComputedStyle(refs[0], '::before').content,
+          note: section.querySelector('li p').firstChild.textContent.trim(),
+          backrefs: section.querySelectorAll('a.data-footnote-backref').length,
+          rules: document.querySelectorAll('#root hr').length,
+        };
+      })()]]
+    )
+    assert.are.same({ refs = { "1", "1" }, before = '"["', note = "The note.", backrefs = 2, rules = 0 }, got)
+  end)
+
+  it_browser("renders GitHub alerts", function()
+    local src = table.concat({
+      "> [!NOTE]\n> Useful.",
+      "> [!warning]\n>\n> Careful.\n>\n> More.",
+      "> [!TIP] not on its own line",
+      "> [!CAUTION]",
+      "> A plain quote.",
+      "- > [!NOTE]\n  > Inside a list.",
+    }, "\n\n")
+    local got = page(
+      src,
+      [[(() => ({
+        alerts: [...document.querySelectorAll('#root div.markdown-alert')].map((d) => [
+          d.className,
+          d.querySelector('p.markdown-alert-title').textContent,
+          d.querySelectorAll('p.markdown-alert-title > svg.octicon').length,
+          [...d.querySelectorAll('p:not(.markdown-alert-title)')].map((p) => p.textContent),
+        ]),
+        quotes: document.querySelectorAll('#root blockquote').length,
+      }))()]]
+    )
+    assert.are.same({
+      alerts = {
+        { "markdown-alert markdown-alert-note", "Note", 1, { "Useful." } },
+        { "markdown-alert markdown-alert-warning", "Warning", 1, { "Careful.", "More." } },
+      },
+      quotes = 4,
+    }, got)
+  end)
+
+  it_browser("turns emoji shortcodes into emoji", function()
+    local text = page("Ship it :tada: :) :not_an_emoji: `:tada:`", "document.querySelector('#root p').textContent")
+    assert.are.equal("Ship it 🎉 :) :not_an_emoji: :tada:", text)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',
