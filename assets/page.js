@@ -56,6 +56,13 @@
     // HTML only: the MathML copy is for screen readers, and invisible here
     katexOptions: { output: "html", throwOnError: false },
   });
+  // texmath renders blocks from a fixed template; add the token's attributes
+  // (the source lines, below) to the template's div.
+  for (const name of new Set(["gitlab", "dollars"].flatMap((set) => texmath.rules[set].block.map((r) => r.name)))) {
+    const render = md.renderer.rules[name];
+    md.renderer.rules[name] = (tokens, idx, options, env, self) =>
+      render(tokens, idx, options, env, self).replace(/^<div/, () => "<div" + self.renderAttrs(tokens[idx]));
+  }
 
   // Mermaid: a ```mermaid block keeps its source in a div, and becomes a
   // diagram after the page is sanitized (see renderDiagrams).
@@ -114,12 +121,20 @@
     }
   });
 
-  // Tag block elements with the source line they start at (0-based).
-  // Used to keep the reading position when switching between raw and page.
+  // Tag block elements with the source lines they come from (0-based, end
+  // exclusive), so pageview can map source lines to rows and back. Code blocks
+  // also get the range of their code lines, which render one per line.
+  const countLines = (s) => (s ? s.split("\n").length - (s.endsWith("\n") ? 1 : 0) : 0);
   md.core.ruler.push("pageview_source_line", (state) => {
     for (const token of state.tokens) {
       if (token.map && token.nesting !== -1 && token.type !== "inline") {
         token.attrSet("data-source-line", String(token.map[0]));
+        token.attrSet("data-source-end", String(token.map[1]));
+        if (token.type === "fence" || token.type === "code_block") {
+          const first = token.map[0] + (token.type === "fence" ? 1 : 0);
+          token.attrSet("data-code-start", String(first));
+          token.attrSet("data-code-end", String(first + countLines(token.content)));
+        }
       }
     }
   });
@@ -258,18 +273,40 @@
     document.body.style.background = bg;
 
     const rect = root.getBoundingClientRect();
-    const lines = [];
-    for (const el of root.querySelectorAll("[data-source-line]")) {
-      lines.push([Number(el.dataset.sourceLine), el.getBoundingClientRect().top + window.scrollY]);
-    }
     return {
       width: document.documentElement.clientWidth,
       height: Math.max(rect.bottom + window.scrollY, 1),
       left: rect.left,
       articleWidth: rect.width,
-      lines,
+      blocks: measureBlocks(),
     };
   };
+
+  // Where each tagged block is drawn: [first line, end line, top, bottom] in
+  // document order, in CSS pixels. A code block is reported twice: the whole
+  // box with its fences, then only its code lines.
+  function measureBlocks() {
+    const y = window.scrollY;
+    const blocks = [];
+    for (const el of root.querySelectorAll("[data-source-line]")) {
+      if (!el.checkVisibility()) continue; // not drawn, as inside a closed <details>
+      const r = el.getBoundingClientRect();
+      const d = el.dataset;
+      // fences put the attributes on <code>, indented code on <pre>
+      const pre = d.codeStart !== undefined && el.closest("pre");
+      if (pre) {
+        const box = pre.getBoundingClientRect();
+        blocks.push([Number(d.sourceLine), Number(d.sourceEnd), box.top + y, box.bottom + y]);
+        if (Number(d.codeEnd) > Number(d.codeStart)) {
+          const text = (pre.querySelector("code") || pre).getBoundingClientRect();
+          blocks.push([Number(d.codeStart), Number(d.codeEnd), text.top + y, text.bottom + y]);
+        }
+      } else {
+        blocks.push([Number(d.sourceLine), Number(d.sourceEnd), r.top + y, r.bottom + y]);
+      }
+    }
+    return blocks;
+  }
 
   // Make the article exactly `px` tall so the last slice has a background.
   window.pageviewSetHeight = (px) => {

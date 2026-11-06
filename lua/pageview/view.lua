@@ -289,11 +289,11 @@ local function anchor_from_page(page, win)
   local view = api.nvim_win_call(win, vim.fn.winsaveview)
   local row = view.lnum - 1
   local line = 0
-  for _, l in ipairs(layout.lines) do
-    if l[2] > row then
+  for _, b in ipairs(layout.blocks) do
+    if math.floor(b[3]) > row then
       break
     end
-    line = l[1]
+    line = b[1]
   end
   return { line = line + 1, offset = view.lnum - view.topline }
 end
@@ -308,11 +308,11 @@ local function goto_anchor(page, win, anchor)
     return
   end
   local row = 0
-  for _, l in ipairs(layout.lines) do
-    if l[1] > anchor.line - 1 then
+  for _, b in ipairs(layout.blocks) do
+    if b[1] > anchor.line - 1 then
       break
     end
-    row = l[2]
+    row = math.floor(b[3])
   end
   local lnum = math.min(layout.total_rows, row + 1)
   api.nvim_win_call(win, function()
