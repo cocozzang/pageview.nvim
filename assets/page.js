@@ -243,6 +243,24 @@
     }
   }
 
+  // GitHub's heading anchors (github-slugger): lower case, punctuation and
+  // symbols removed except "-" and "_", spaces to "-", "-1", "-2"… for
+  // repeats. Prefixed with "user-content-" as on GitHub, so a heading cannot
+  // take the id of the page's own elements; links to "#slug" find it anyway.
+  function slug(text) {
+    return text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, "").replace(/ /g, "-");
+  }
+  function addHeadingIds() {
+    const seen = new Map();
+    for (const h of root.querySelectorAll("h1, h2, h3, h4, h5, h6")) {
+      if (h.id) continue; // set in the document's own HTML
+      const base = slug(h.textContent.trim());
+      const n = seen.get(base) || 0;
+      seen.set(base, n + 1);
+      h.id = "user-content-" + (n ? `${base}-${n}` : base);
+    }
+  }
+
   /**
    * Render markdown into the page and report its geometry in CSS pixels.
    * @param {string} src
@@ -259,6 +277,7 @@
 
     root.style.minHeight = "";
     root.innerHTML = DOMPurify.sanitize(md.render(src), { ADD_ATTR: ["target"] });
+    addHeadingIds();
 
     await renderDiagrams();
     await imagesLoaded(5000);

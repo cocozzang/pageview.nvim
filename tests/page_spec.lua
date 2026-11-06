@@ -255,6 +255,30 @@ describe("page", function()
     end)
   end)
 
+  it_browser("gives headings GitHub's anchor ids", function()
+    local src = table.concat({
+      "# Hello World",
+      "## What's new?",
+      "## `setup()` options",
+      "## 설치 방법",
+      "## Ship it :tada:",
+      "## Hello World",
+      "## snake_case and kebab-case",
+      '<h2 id="own">Own id</h2>',
+    }, "\n\n")
+    local ids = page(src, "[...document.querySelectorAll('#root h1, #root h2')].map((h) => h.id)")
+    assert.are.same({
+      "user-content-hello-world",
+      "user-content-whats-new",
+      "user-content-setup-options",
+      "user-content-설치-방법",
+      "user-content-ship-it-",
+      "user-content-hello-world-1",
+      "user-content-snake_case-and-kebab-case",
+      "own",
+    }, ids)
+  end)
+
   describe("source lines", function()
     --- Source line ranges of the measured blocks.
     local function ranges(src)
