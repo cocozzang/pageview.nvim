@@ -55,6 +55,21 @@ grep -v '^#' "$vendor/VERSIONS" | while read -r name version; do
     } >"$vendor/octicons/octicons.js"
     echo "  octicons/octicons.js"
     ;;
+  katex)
+    fetch "$name" "$version" dist/katex.min.js katex/katex.min.js
+    fetch "$name" "$version" dist/katex.min.css katex/katex.min.css
+    fetch "$name" "$version" LICENSE katex/LICENSE
+    # every font, but only as woff2: Chromium never asks for the others
+    rm -rf "$vendor/katex/fonts"
+    curl -fsSL "https://data.jsdelivr.com/v1/packages/npm/$name@$version?structure=flat" |
+      grep -o '"/dist/fonts/[^"]*\.woff2"' | tr -d '"' | while read -r font; do
+      fetch "$name" "$version" "${font#/}" "katex/${font#/dist/}"
+    done
+    ;;
+  markdown-it-texmath)
+    fetch "$name" "$version" texmath.js markdown-it-texmath/texmath.js
+    fetch "$name" "$version" license.txt markdown-it-texmath/LICENSE
+    ;;
   *)
     echo "unknown package: $name" >&2
     exit 1
