@@ -84,18 +84,55 @@ local function not_found(pat, forward)
     or ("E384: Search hit TOP without match for: " .. pat)
 end
 
+--- Which match of how many, as Vim shows it: "[2/5]", "[2/>99]", "W [1/5]"
+--- after wrapping around.
+---@param raw integer
+---@param pat string
+---@param match pageview.Match
+---@return string?
+local function count_text(raw, pat, match)
+  local ok, c = pcall(api.nvim_buf_call, raw, function()
+    return vim.fn.searchcount({ pattern = with_case(pat), pos = { match.line, match.col + 1, 0 }, timeout = 500 })
+  end)
+  if not ok or not c.total then
+    return nil
+  end
+  local s
+  if c.incomplete == 1 then
+    s = "[?/??]"
+  elseif c.total > c.maxcount and c.current > c.maxcount then
+    s = ("[>%d/>%d]"):format(c.maxcount, c.maxcount)
+  elseif c.total > c.maxcount then
+    s = ("[%d/>%d]"):format(c.current, c.maxcount)
+  else
+    s = ("[%d/%d]"):format(c.current, c.total)
+  end
+  return match.wrapped and ("W " .. s) or s
+end
+
+--- Show the pattern, with the match count at the right unless 'shortmess'
+--- has "S". Without the count, wrapping around gets Vim's warning instead.
+---@param raw integer
 ---@param pat string
 ---@param forward boolean
 ---@param match pageview.Match
-local function report(pat, forward, match)
+local function report(raw, pat, forward, match)
   local text = (forward and "/" or "?") .. pat
-  if match.wrapped and not vim.o.shortmess:find("s", 1, true) then
+  local count = not vim.o.shortmess:find("S", 1, true) and count_text(raw, pat, match)
+  if count then
+    local room = vim.v.echospace - #count - 1
+    if vim.fn.strdisplaywidth(text) > room then
+      text = vim.fn.strcharpart(text, 0, math.max(0, room - 1)) .. "…"
+    end
+    local gap = math.max(1, vim.v.echospace - vim.fn.strdisplaywidth(text) - #count)
+    echo({ { text .. string.rep(" ", gap) .. count } })
+  elseif match.wrapped and not vim.o.shortmess:find("s", 1, true) then
     echo({
       { forward and "search hit BOTTOM, continuing at TOP" or "search hit TOP, continuing at BOTTOM", "WarningMsg" },
     })
-    return
+  else
+    echo({ { text } })
   end
-  echo({ { text } })
 end
 
 --- Search the source from the page cursor and move the cursor to the match.
@@ -135,7 +172,7 @@ function M.run(page, win, pat, forward, count)
   end
   view.jump(page, win, match.line, match.col)
   view.set_match(page, { line = match.line, col = match.col })
-  report(pat, forward, match)
+  report(page.raw, pat, forward, match)
 end
 
 --- Remember a typed search like Neovim does: history, last pattern, direction.
