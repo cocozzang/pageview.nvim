@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="vendor/github-markdown-css/github-markdown.css">
+<!-- pageview picks the theme by emulating prefers-color-scheme -->
+<link rel="stylesheet" href="vendor/highlight.js/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="vendor/highlight.js/github.min.css" media="(prefers-color-scheme: light)">
 <style>
   html, body { margin: 0; padding: 0; background: transparent; }
   .markdown-body {
@@ -20,6 +23,8 @@
 <style id="pv-user-css"></style>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
 <script src="vendor/dompurify/purify.min.js"></script>
+<script src="vendor/highlight.js/highlight.min.js"></script>
+<script src="vendor/highlight.js/vim.min.js"></script>
 </head>
 <body>
 <article id="root" class="markdown-body"></article>

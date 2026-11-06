@@ -28,6 +28,8 @@ lint:
 		"$(LUALS)" --check=lua --checklevel=Warning --configpath=$(CURDIR)/.luarc.json
 
 # Tests use their own cache folder so they never touch the real one.
+# nlua runs stdin as Lua after the tests when stdin is not a terminal, so an
+# open pipe (an editor or agent running make) would keep it waiting forever.
 test:
 	@if [ -d .luarocks ]; then eval "$$(luarocks $(LUAROCKS_FLAGS) path)"; fi; \
-		XDG_CACHE_HOME=$(CURDIR)/.tests/cache busted
+		XDG_CACHE_HOME=$(CURDIR)/.tests/cache busted </dev/null

@@ -29,6 +29,14 @@ grep -v '^#' "$vendor/VERSIONS" | while read -r name version; do
     fetch "$name" "$version" dist/purify.min.js dompurify/purify.min.js
     fetch "$name" "$version" LICENSE dompurify/LICENSE
     ;;
+  @highlightjs/cdn-assets)
+    # the common languages, plus Vim script
+    fetch "$name" "$version" highlight.min.js highlight.js/highlight.min.js
+    fetch "$name" "$version" languages/vim.min.js highlight.js/vim.min.js
+    fetch "$name" "$version" styles/github.min.css highlight.js/github.min.css
+    fetch "$name" "$version" styles/github-dark.min.css highlight.js/github-dark.min.css
+    fetch "$name" "$version" LICENSE highlight.js/LICENSE
+    ;;
   *)
     echo "unknown package: $name" >&2
     exit 1

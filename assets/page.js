@@ -2,7 +2,18 @@
 "use strict";
 
 (() => {
-  const md = window.markdownit({ html: true, linkify: true });
+  // Code blocks are colored by highlight.js. Unknown languages stay plain.
+  hljs.registerAliases(["viml", "vimscript"], { languageName: "vim" });
+  function highlight(code, lang) {
+    if (!lang || !hljs.getLanguage(lang)) return "";
+    try {
+      return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+    } catch (_) {
+      return "";
+    }
+  }
+
+  const md = window.markdownit({ html: true, linkify: true, highlight });
 
   // Tag block elements with the source line they start at (0-based).
   // Used to keep the reading position when switching between raw and page.
