@@ -49,6 +49,19 @@ Switching keeps your reading position, also inside long paragraphs and code bloc
 at the same height in the window. Switching back without moving returns to exactly where you were. The page is
 rendered when you open it and again when the window width changes; unchanged pages come from the cache.
 
+### Searching
+
+In a page, `/` and `?` search the Markdown source and move the cursor to the row where the match is drawn. `n` and
+`N` go to the next and previous match. The last pattern, the search history and the direction are shared with normal
+searches, so a search started in the raw buffer continues in the page and back. `'ignorecase'`, `'smartcase'` and
+`'wrapscan'` apply. Switching to raw after a search puts the cursor on the match.
+
+The source is searched, not the rendered text, so Markdown syntax and link targets can match too.
+
+`n` and `N` are mapped in page buffers only. With `keymaps = false` they are left unmapped, and you can map
+`require("pageview").search_next()` and `search_next(true)` yourself (in a `FileType pageview` autocommand, for
+example). `/` and `?` always search the source.
+
 ### Statusline
 
 `require("pageview").status()` returns `"PAGE"`, `"RAW"` (a buffer that can be shown as a page) or `""`.
@@ -91,6 +104,7 @@ require("pageview").setup({
   browser_idle_timeout = 600, -- seconds before an unused browser is closed; 0 keeps it
   filetypes = { "markdown" },
   cache_max_size = 200 * 1024 * 1024, -- bytes of rendered images kept on disk
+  keymaps = true, -- map n and N in page buffers
 })
 ```
 
