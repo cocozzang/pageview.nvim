@@ -64,6 +64,7 @@ sections = { lualine_x = { function() return require("pageview").status() end } 
 - Footnotes (`[^1]`)
 - Alerts (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`)
 - Emoji shortcodes (`:tada:`)
+- Math with [KaTeX](https://katex.org/): `$…$` and `` $`…`$ `` inline, `$$…$$` and ` ```math ` blocks
 - Code blocks colored by [highlight.js](https://highlightjs.org/) (its common languages and Vim script)
 - Inline HTML, with scripts and event handlers removed
 - Images and links relative to the file's folder

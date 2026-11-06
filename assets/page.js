@@ -35,6 +35,24 @@
   md.renderer.rules.footnote_anchor = (tokens, idx) =>
     ` <a href="#fnref${footnoteId(tokens, idx)}" class="data-footnote-backref">↩︎</a>`;
 
+  // Math as on GitHub: $…$ and $`…`$ inline, $$…$$ and ```math blocks, typeset
+  // by KaTeX. $`…`$ goes first so the $…$ rule does not take its backticks.
+  // GitHub has no equation numbers, so those rules are left out.
+  for (const set of ["gitlab", "dollars"]) {
+    const rules = texmath.rules[set];
+    rules.block = rules.block.filter((r) => r.name !== "math_block_eqno");
+    for (const r of rules.inline) {
+      r.tmpl = `<span class="math ${r.displayMode ? "math-display" : "math-inline"}">$1</span>`;
+    }
+    for (const r of rules.block) r.tmpl = '<div class="math math-display">$1</div>';
+  }
+  md.use(texmath, {
+    engine: katex,
+    delimiters: ["gitlab", "dollars"],
+    // HTML only: the MathML copy is for screen readers, and invisible here
+    katexOptions: { output: "html", throwOnError: false },
+  });
+
   // Alerts: a top-level blockquote whose first line is only [!NOTE], [!TIP],
   // [!IMPORTANT], [!WARNING] or [!CAUTION] becomes GitHub's titled box.
   const ALERTS = {
@@ -152,6 +170,7 @@
     root.innerHTML = DOMPurify.sanitize(md.render(src), { ADD_ATTR: ["target"] });
 
     await imagesLoaded(5000);
+    // also waits for fonts the new content needs (KaTeX's, for example)
     await document.fonts.ready;
     await nextFrame();
 

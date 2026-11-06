@@ -109,6 +109,22 @@ set termguicolors
 A code block without a language.
 ```
 
+## Math
+
+Inline math $e^{i\pi} + 1 = 0$, and the GitHub form with backticks $`\sqrt{x^2 + y^2}`$.
+Prices like $5 and $10 stay text.
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
+$$
+
+```math
+\begin{aligned}
+  f(x) &= \sum_{n=0}^{\infty} \frac{f^{(n)}(a)}{n!}(x-a)^n \\
+  A &= \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}
+\end{aligned}
+```
+
 ## Image
 
 A relative path, resolved against this file's folder:
