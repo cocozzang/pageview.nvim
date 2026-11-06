@@ -20,6 +20,7 @@ local M = {}
 
 local ns = api.nvim_create_namespace("pageview")
 local ns_status = api.nvim_create_namespace("pageview.status")
+local ns_match = api.nvim_create_namespace("pageview.match")
 
 ---@class pageview.Anchor
 ---@field line integer source line (1-based)
@@ -46,6 +47,7 @@ local ns_status = api.nvim_create_namespace("pageview.status")
 ---@field layout? pageview.Layout
 ---@field anchor? pageview.Anchor where to scroll once the layout is ready
 ---@field placed? pageview.Placed
+---@field match? { line: integer, col: integer } last search match, marked on the page
 ---@field shown table<integer, pageview.kitty.Image> slice index -> image in the terminal
 ---@field queue integer[] slices waiting to be captured
 ---@field queued table<integer, boolean>
@@ -373,6 +375,52 @@ function M.jump(page, win, line, col)
   page.placed = { key = page.key, row = lnum, line = line, col = col }
 end
 
+--- Highlight of the match mark: the foreground of `PageviewMatch` if it is
+--- set, else the background of `Search`, over the article background.
+---@param bg? string
+---@return string
+local function match_hl(bg)
+  local fg = api.nvim_get_hl(0, { name = "PageviewMatch", link = false }).fg
+  if not fg then
+    local search = api.nvim_get_hl(0, { name = "Search", link = false })
+    fg = search.bg or search.fg
+  end
+  api.nvim_set_hl(0, "PageviewMatchMark", { fg = fg, bg = bg })
+  return "PageviewMatchMark"
+end
+
+--- Draw a bar beside the rows of the last match, in the article's left padding.
+---@param page pageview.Page
+local function draw_match(page)
+  if not api.nvim_buf_is_valid(page.buf) then
+    return
+  end
+  api.nvim_buf_clear_namespace(page.buf, ns_match, 0, -1)
+  local match, layout = page.match, page.layout
+  if not (match and layout) then
+    return
+  end
+  local top, bottom = position.extent(layout.blocks, match.line - 1)
+  local r0 = math.max(0, math.min(layout.total_rows - 1, math.floor(top + 0.5)))
+  local r1 = math.max(r0, math.min(layout.total_rows - 1, math.floor(bottom + 0.5) - 1))
+  local hl = match_hl(layout.bg)
+  for r = r0, r1 do
+    api.nvim_buf_set_extmark(page.buf, ns_match, r, 0, {
+      virt_text = { { "▌", hl } },
+      virt_text_win_col = layout.mark_col,
+      priority = 5000, -- over the image placeholders
+    })
+  end
+end
+
+--- Mark a search match on the page (nil removes the mark).
+---@param page pageview.Page
+---@param match? { line: integer, col: integer }
+function M.set_match(page, match)
+  page.match = match
+  draw_match(page)
+end
+
 ---@param page pageview.Page
 ---@param layout pageview.Layout
 local function apply_layout(page, layout)
@@ -380,6 +428,7 @@ local function apply_layout(page, layout)
   page.failed = nil
   api.nvim_buf_clear_namespace(page.buf, ns, 0, -1)
   set_line_count(page, layout.total_rows)
+  draw_match(page)
   local win = find_win(page)
   if not win then
     return
@@ -544,6 +593,17 @@ local function create(raw)
       pcall(api.nvim_del_augroup_by_id, group)
     end,
   })
+  -- with 'hlsearch', the mark goes away with the highlighting (:nohlsearch)
+  api.nvim_create_autocmd("CursorMoved", {
+    group = group,
+    buffer = buf,
+    callback = function()
+      if page.match and vim.o.hlsearch and vim.v.hlsearch == 0 then
+        M.set_match(page, nil)
+      end
+    end,
+  })
+
   if config.get().keymaps then
     local function map(lhs, reverse, desc)
       vim.keymap.set("n", lhs, function()
@@ -634,6 +694,7 @@ function M.close(win)
   if not api.nvim_buf_is_valid(page.raw) then
     return
   end
+  M.set_match(page, nil)
   api.nvim_win_set_buf(win, page.raw)
   if anchor then
     local last = api.nvim_buf_line_count(page.raw)

@@ -134,6 +134,7 @@ function M.run(page, win, pat, forward, count)
     return
   end
   view.jump(page, win, match.line, match.col)
+  view.set_match(page, { line = match.line, col = match.col })
   report(pat, forward, match)
 end
 

@@ -5,7 +5,7 @@ local blocks = {
   { 0, 1, 0, 3 }, -- heading
   { 2, 6, 4, 8 }, -- paragraph: 4 lines on 4 rows
   { 7, 40, 9, 50 }, -- code box with its fences
-  { 8, 39, 10, 48 }, -- its 31 code lines on 38 rows
+  { 8, 39, 10, 48, 1 }, -- its 31 code lines on 38 rows, evenly spaced
   { 41, 50, 51, 60 }, -- list
   { 41, 45, 51, 55 }, -- item
   { 45, 50, 55, 60 }, -- item
@@ -33,6 +33,35 @@ describe("position", function()
     it("sends lines after the last block to its bottom", function()
       assert.are.equal(60, position.row(blocks, 100))
       assert.are.equal(0, position.row({}, 5))
+    end)
+  end)
+
+  describe("extent", function()
+    it("gives a code line its own rows", function()
+      local per = 38 / 31
+      local top, bottom = position.extent(blocks, 9)
+      assert.is_true(math.abs(top - (10 + per)) < 1e-9)
+      assert.is_true(math.abs(bottom - (10 + 2 * per)) < 1e-9)
+    end)
+
+    it("gives a line of text its whole block", function()
+      assert.are.same({ 4, 8 }, { position.extent(blocks, 3) })
+      assert.are.same({ 51, 55 }, { position.extent(blocks, 42) })
+    end)
+
+    it("leaves out nested blocks before and after the line", function()
+      local nested = {
+        { 0, 9, 0, 20 }, -- list item
+        { 0, 1, 0, 2 }, -- its first paragraph
+        { 2, 5, 3, 10 }, -- a sublist
+        { 6, 9, 12, 20 }, -- a code block
+      }
+      assert.are.same({ 2, 3 }, { position.extent(nested, 1) }) -- between paragraph and sublist
+      assert.are.same({ 10, 12 }, { position.extent(nested, 5) }) -- between sublist and code
+    end)
+
+    it("gives a line outside any block one row", function()
+      assert.are.same({ 4, 5 }, { position.extent(blocks, 1) })
     end)
   end)
 

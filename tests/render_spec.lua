@@ -58,6 +58,24 @@ describe("render", function()
       { height = 640, left = 0, articleWidth = 800, blocks = { { 0, 3, 32, 100 }, { 4, 9, 100.1234, 160 } } }
     )
     assert.are.same({ { 0, 3, 2, 6.25 }, { 4, 9, 6.26, 10 } }, l.blocks)
+    l = render.plan(params(), { height = 640, left = 0, articleWidth = 800, blocks = { { 1, 3, 0, 16, 1 } } })
+    assert.are.same({ { 1, 3, 0, 1, 1 } }, l.blocks) -- evenly spaced lines stay marked
+  end)
+
+  it("puts marks in the middle of the article's left padding", function()
+    -- article from 200 CSS px with 32 px padding: 216 px = column 27
+    local l = render.plan(params(), { height = 640, left = 200, articleWidth = 560, padLeft = 32, blocks = {} })
+    assert.are.equal(27, l.mark_col)
+    l = render.plan(params(), { height = 640, left = 0, articleWidth = 800, padLeft = 32, blocks = {} })
+    assert.are.equal(2, l.mark_col)
+  end)
+
+  it("reads the article background", function()
+    assert.are.equal("#0d1117", render.hex_color("rgb(13, 17, 23)"))
+    assert.are.equal("#ffffff", render.hex_color("rgba(255, 255, 255, 1)"))
+    assert.is_nil(render.hex_color("rgba(0, 0, 0, 0)"))
+    assert.is_nil(render.hex_color(""))
+    assert.is_nil(render.hex_color(nil))
   end)
 
   it("splits rows into slices", function()

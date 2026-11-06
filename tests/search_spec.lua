@@ -96,11 +96,21 @@ describe("search in the page", function()
     end
   end)
 
-  --- Wait until a search put the cursor on a source position.
-  local function wait_at(lnum, col)
-    wait(2000, function()
-      return page.placed and page.placed.line == lnum and page.placed.col == col
-    end)
+  --- Type keys that search in the page, and wait until the search ran: it
+  --- always reports something (the pattern, a warning or an error).
+  local function search(keys)
+    echoed = {}
+    type_keys(keys)
+    assert.is_true(
+      wait(2000, function()
+        return #echoed > 0
+      end),
+      "no search for " .. keys
+    )
+  end
+
+  --- The last search put the cursor on this source position.
+  local function at(lnum, col)
     assert.are.same({ lnum, col }, { page.placed.line, page.placed.col })
     -- the page cursor is on the row where that line is drawn
     local row = vim.fn.line(".")
@@ -108,8 +118,8 @@ describe("search in the page", function()
   end
 
   it_browser("finds a pattern in the source with /", function()
-    type_keys("/target<CR>")
-    wait_at(where("target", 1))
+    search("/target<CR>")
+    at(where("target", 1))
     assert.are.equal("target", vim.fn.getreg("/"))
     assert.are.equal("target", vim.fn.histget("/", -1))
     assert.are.equal(1, vim.v.searchforward)
@@ -117,32 +127,32 @@ describe("search in the page", function()
   end)
 
   it_browser("goes through the matches with n and N, also inside one line", function()
-    type_keys("/beta<CR>")
-    wait_at(where("beta", 1))
+    search("/beta<CR>")
+    at(where("beta", 1))
     local row = vim.fn.line(".")
-    type_keys("n")
-    wait_at(where("beta", 2))
+    search("n")
+    at(where("beta", 2))
     assert.are.equal(row, vim.fn.line(".")) -- same paragraph, same row
-    type_keys("N")
-    wait_at(where("beta", 1))
+    search("N")
+    at(where("beta", 1))
   end)
 
   it_browser("wraps around the end of the document", function()
-    type_keys("/target<CR>")
-    wait_at(where("target", 1))
-    type_keys("n")
-    wait_at(where("target", 2))
-    type_keys("n")
-    wait_at(where("target", 1))
+    search("/target<CR>")
+    at(where("target", 1))
+    search("n")
+    at(where("target", 2))
+    search("n")
+    at(where("target", 1))
     assert.is_true(vim.tbl_contains(echoed, "search hit BOTTOM, continuing at TOP"))
   end)
 
   it_browser("searches backward with ?", function()
-    type_keys("?target<CR>")
-    wait_at(where("target", 2)) -- from the top, backward wraps to the last one
+    search("?target<CR>")
+    at(where("target", 2)) -- from the top, backward wraps to the last one
     assert.are.equal(0, vim.v.searchforward)
-    type_keys("N")
-    wait_at(where("target", 1)) -- N is forward after ?
+    search("N")
+    at(where("target", 1)) -- N is forward after ?
   end)
 
   it_browser("leaves the page alone when the search is cancelled", function()
@@ -154,25 +164,19 @@ describe("search in the page", function()
   end)
 
   it_browser("reports a pattern that is not in the source", function()
-    type_keys("/nowhere<CR>")
-    assert.is_true(wait(2000, function()
-      return vim.tbl_contains(echoed, "E486: Pattern not found: nowhere")
-    end))
+    search("/nowhere<CR>")
+    assert.are.same({ "E486: Pattern not found: nowhere" }, echoed)
     vim.o.wrapscan = false
-    type_keys("?nowhere<CR>")
-    assert.is_true(wait(2000, function()
-      return vim.tbl_contains(echoed, "E384: Search hit TOP without match for: nowhere")
-    end))
+    search("?nowhere<CR>")
+    assert.are.same({ "E384: Search hit TOP without match for: nowhere" }, echoed)
   end)
 
   it_browser("follows 'ignorecase' and 'smartcase'", function()
     vim.o.ignorecase, vim.o.smartcase = true, true
-    type_keys("/TARGET<CR>")
-    assert.is_true(wait(2000, function()
-      return vim.tbl_contains(echoed, "E486: Pattern not found: TARGET")
-    end))
-    type_keys("/LAST\\c<CR>")
-    wait_at(where("Last", 1))
+    search("/TARGET<CR>")
+    assert.are.same({ "E486: Pattern not found: TARGET" }, echoed)
+    search("/LAST\\c<CR>")
+    at(where("Last", 1))
   end)
 
   it_browser("continues a search started in the raw buffer", function()
@@ -180,8 +184,8 @@ describe("search in the page", function()
     type_keys("/target<CR>") -- Neovim's own search
     assert.are.same({ where("target", 1) }, { vim.fn.line("."), vim.fn.col(".") - 1 })
     require("pageview").open()
-    type_keys("n")
-    wait_at(where("target", 2))
+    search("n")
+    at(where("target", 2))
   end)
 
   it_browser("maps n and N only in page buffers, unless keymaps = false", function()
@@ -203,9 +207,55 @@ describe("search in the page", function()
     os.remove(other)
   end)
 
+  describe("mark", function()
+    local ns = vim.api.nvim_create_namespace("pageview.match")
+
+    ---@return integer[] rows (1-based) with a mark
+    local function marked()
+      local rows = {}
+      for _, m in ipairs(vim.api.nvim_buf_get_extmarks(page.buf, ns, 0, -1, { details = true })) do
+        assert.are.equal(page.layout.mark_col, m[4].virt_text_win_col)
+        rows[#rows + 1] = m[2] + 1
+      end
+      return rows
+    end
+
+    it_browser("is drawn beside the matched code line", function()
+      search("/target<CR>")
+      at(where("target", 1))
+      local rows = marked()
+      assert.is_true(#rows >= 1 and #rows <= 2, vim.inspect(rows)) -- one code line
+      assert.is_true(vim.tbl_contains(rows, vim.fn.line(".")))
+    end)
+
+    it_browser("covers the matched paragraph", function()
+      search("/again<CR>")
+      at(where("again", 1))
+      assert.is_true(#marked() >= 2) -- a paragraph is taller than a row
+    end)
+
+    it_browser("goes away when leaving the page or after :nohlsearch", function()
+      search("/target<CR>")
+      at(where("target", 1))
+      require("pageview").close()
+      assert.are.same({}, marked())
+
+      vim.o.hlsearch = true
+      require("pageview").open()
+      search("/target<CR>") -- from the first match, where the raw cursor is
+      at(where("target", 2))
+      assert.are_not.same({}, marked())
+      vim.v.hlsearch = 0
+      type_keys("k")
+      -- typed keys run without the main loop here, which is what fires CursorMoved
+      vim.api.nvim_exec_autocmds("CursorMoved", { buffer = page.buf })
+      assert.are.same({}, marked())
+    end)
+  end)
+
   it_browser("lands on the match when switching to raw", function()
-    type_keys("/target<CR>")
-    wait_at(where("target", 1))
+    search("/target<CR>")
+    at(where("target", 1))
     require("pageview").close()
     assert.are.same({ where("target", 1) }, { vim.fn.line("."), vim.fn.col(".") - 1 })
   end)

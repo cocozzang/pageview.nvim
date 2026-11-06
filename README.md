@@ -56,6 +56,15 @@ In a page, `/` and `?` search the Markdown source and move the cursor to the row
 searches, so a search started in the raw buffer continues in the page and back. `'ignorecase'`, `'smartcase'` and
 `'wrapscan'` apply. Switching to raw after a search puts the cursor on the match.
 
+The page is an image, so the matched word itself cannot be highlighted. A bar in the left margin of the article marks
+where the match is: beside the line for code, beside the paragraph (or list item, table row, heading) for text. It
+goes away with `:nohlsearch` when `'hlsearch'` is on, and when you switch to raw. Its color is the background of
+`Search`; set the foreground of `PageviewMatch` to change it:
+
+```lua
+vim.api.nvim_set_hl(0, "PageviewMatch", { fg = "#f0883e" })
+```
+
 The source is searched, not the rendered text, so Markdown syntax and link targets can match too.
 
 `n` and `N` are mapped in page buffers only. With `keymaps = false` they are left unmapped, and you can map
