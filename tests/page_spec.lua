@@ -219,6 +219,22 @@ describe("page", function()
       assert.are.same({ svgs = 1, labels = { "Start", "End" }, code = 0 }, got)
     end)
 
+    it_browser("use the classic look, with curved edges and no shadows", function()
+      local got = page(
+        "```mermaid\nflowchart LR\n  A --> B\n  A --> C --> B\n```",
+        [[(() => {
+          const edges = [...document.querySelectorAll('#root .pv-mermaid .edgePaths path')];
+          const shapes = [...document.querySelectorAll('#root .pv-mermaid .node rect, #root .pv-mermaid .node polygon')];
+          return {
+            edges: edges.length,
+            curved: edges.filter((p) => /C/.test(p.getAttribute('d'))).length,
+            shadows: shapes.filter((s) => /shadow/.test(getComputedStyle(s).filter + s.getAttribute('style'))).length,
+          };
+        })()]]
+      )
+      assert.are.same({ edges = 3, curved = 3, shadows = 0 }, got)
+    end)
+
     it_browser("follow the theme", function()
       local label_color = "getComputedStyle(document.querySelector('#root .pv-mermaid .nodeLabel')).color"
       local dark = page(flowchart, label_color, { theme = "github-dark" })
