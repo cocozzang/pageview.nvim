@@ -43,13 +43,22 @@ jobs:
       fail-fast: false
       matrix:
         nvim: [v0.10.4, stable]
-    env:
-      # keep the test cache inside the workspace
-      XDG_CACHE_HOME: ${{ github.workspace }}/.tests/cache
     steps:
       - uses: actions/checkout@v4
       - name: Browser
         run: google-chrome --version
-      - uses: nvim-neorocks/nvim-busted-action@v1
+      - uses: rhysd/action-setup-vim@v1
         with:
-          nvim_version: ${{ matrix.nvim }}
+          neovim: true
+          version: ${{ matrix.nvim }}
+      # busted and nlua are installed the same way as `make deps` does locally,
+      # so CI needs no rockspec.
+      - uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: "5.1"
+      - uses: hishamhm/gh-actions-luarocks@v7
+      - name: Install busted and nlua
+        run: make deps
+      # `make test` keeps the cache in .tests/cache
+      - name: Test
+        run: make test
