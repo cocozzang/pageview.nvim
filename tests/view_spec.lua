@@ -178,11 +178,16 @@ describe("page view", function()
       os.remove(long)
     end)
 
+    local has_screen ---@type boolean
+
     ---@return pageview.Page
     local function open_at(lnum, col, offset)
       vim.cmd.edit(long)
       vim.bo.filetype = "markdown"
       vim.fn.winrestview({ lnum = lnum, col = col, topline = lnum - offset })
+      -- Neovim 0.10 started with -l has no screen, and then always puts the
+      -- top line on the cursor line: screen rows cannot be checked there.
+      has_screen = vim.fn.line("w0") == lnum - offset
       require("pageview").open()
       local page = assert(view.get(vim.api.nvim_get_current_buf()))
       assert.is_true(wait(30000, function()
@@ -198,7 +203,15 @@ describe("page view", function()
     it_browser("opens the page at the same code line and screen row", function()
       local page = open_at(CODE_LINE, 4, 5)
       assert.are.equal(CODE_LINE, line_at_cursor(page))
-      assert.are.equal(5, vim.fn.line(".") - vim.fn.line("w0"))
+      assert.are.equal(
+        has_screen and 5 or 0,
+        vim.fn.line(".") - vim.fn.line("w0"),
+        ("page window: cursor on row %d, top row %d, window %d rows high"):format(
+          vim.fn.line("."),
+          vim.fn.line("w0"),
+          vim.api.nvim_win_get_height(0)
+        )
+      )
       -- not the top of the block, which is about 60 rows up
       assert.is_true(vim.fn.line(".") > 40)
     end)
