@@ -131,6 +131,36 @@ describe("page", function()
     assert.are.same({ refs = { "1", "1" }, before = '"["', note = "The note.", backrefs = 2, rules = 0 }, got)
   end)
 
+  it_browser("renders GitHub alerts", function()
+    local src = table.concat({
+      "> [!NOTE]\n> Useful.",
+      "> [!warning]\n>\n> Careful.\n>\n> More.",
+      "> [!TIP] not on its own line",
+      "> [!CAUTION]",
+      "> A plain quote.",
+      "- > [!NOTE]\n  > Inside a list.",
+    }, "\n\n")
+    local got = page(
+      src,
+      [[(() => ({
+        alerts: [...document.querySelectorAll('#root div.markdown-alert')].map((d) => [
+          d.className,
+          d.querySelector('p.markdown-alert-title').textContent,
+          d.querySelectorAll('p.markdown-alert-title > svg.octicon').length,
+          [...d.querySelectorAll('p:not(.markdown-alert-title)')].map((p) => p.textContent),
+        ]),
+        quotes: document.querySelectorAll('#root blockquote').length,
+      }))()]]
+    )
+    assert.are.same({
+      alerts = {
+        { "markdown-alert markdown-alert-note", "Note", 1, { "Useful." } },
+        { "markdown-alert markdown-alert-warning", "Warning", 1, { "Careful.", "More." } },
+      },
+      quotes = 4,
+    }, got)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',
