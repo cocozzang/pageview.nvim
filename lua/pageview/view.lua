@@ -10,6 +10,7 @@ local browser = require("pageview.browser")
 local cache = require("pageview.cache")
 local config = require("pageview.config")
 local kitty = require("pageview.backend.kitty")
+local position = require("pageview.position")
 local render = require("pageview.render")
 local terminal = require("pageview.terminal")
 
@@ -22,7 +23,19 @@ local ns_status = api.nvim_create_namespace("pageview.status")
 
 ---@class pageview.Anchor
 ---@field line integer source line (1-based)
----@field offset integer screen rows between the window top and that line
+---@field col? integer source column (0-based), when known exactly
+---@field offset integer screen rows between the window top and the cursor
+---@field row? integer page line (1-based) for `line`, when known exactly...
+---@field key? string ...in the layout with this key
+
+--- The last switch between raw and page: where the cursor was put on each
+--- side. While the cursor stays there, switching back returns to exactly the
+--- same place, instead of going through the approximate line <-> row mapping.
+---@class pageview.Placed
+---@field key string layout key
+---@field row integer page line (1-based)
+---@field line integer source line (1-based)
+---@field col? integer source column (0-based)
 
 ---@class pageview.Page
 ---@field buf integer page buffer
@@ -32,6 +45,7 @@ local ns_status = api.nvim_create_namespace("pageview.status")
 ---@field params? pageview.RenderParams
 ---@field layout? pageview.Layout
 ---@field anchor? pageview.Anchor where to scroll once the layout is ready
+---@field placed? pageview.Placed
 ---@field shown table<integer, pageview.kitty.Image> slice index -> image in the terminal
 ---@field queue integer[] slices waiting to be captured
 ---@field queued table<integer, boolean>
@@ -287,15 +301,15 @@ local function anchor_from_page(page, win)
     return page.anchor
   end
   local view = api.nvim_win_call(win, vim.fn.winsaveview)
-  local row = view.lnum - 1
-  local line = 0
-  for _, l in ipairs(layout.lines) do
-    if l[2] > row then
-      break
-    end
-    line = l[1]
+  local anchor = { offset = view.lnum - view.topline, row = view.lnum, key = page.key }
+  local placed = page.placed
+  if placed and placed.key == page.key and placed.row == view.lnum then
+    anchor.line, anchor.col = placed.line, placed.col
+  else
+    -- the middle of the cursor row
+    anchor.line = position.line(layout.blocks, view.lnum - 0.5) + 1
   end
-  return { line = line + 1, offset = view.lnum - view.topline }
+  return anchor
 end
 
 --- Scroll the page so the anchor's source line sits at the same screen offset.
@@ -307,17 +321,16 @@ local function goto_anchor(page, win, anchor)
   if not layout then
     return
   end
-  local row = 0
-  for _, l in ipairs(layout.lines) do
-    if l[1] > anchor.line - 1 then
-      break
-    end
-    row = l[2]
+  local lnum = anchor.row
+  if not (lnum and anchor.key == page.key) then
+    -- the row that holds most of the line's first row
+    lnum = math.floor(position.row(layout.blocks, anchor.line - 1) + 0.5) + 1
   end
-  local lnum = math.min(layout.total_rows, row + 1)
+  lnum = math.max(1, math.min(layout.total_rows, lnum))
   api.nvim_win_call(win, function()
     vim.fn.winrestview({ lnum = lnum, col = 0, topline = math.max(1, lnum - anchor.offset), leftcol = 0 })
   end)
+  page.placed = { key = page.key, row = lnum, line = anchor.line, col = anchor.col }
 end
 
 ---@param page pageview.Page
@@ -541,7 +554,13 @@ function M.open(win)
   end
   local page = by_raw[raw] and pages[by_raw[raw]] or create(raw)
   local view = api.nvim_win_call(win, vim.fn.winsaveview)
-  page.anchor = { line = view.lnum, offset = view.lnum - view.topline }
+  local anchor = { line = view.lnum, col = view.col, offset = view.lnum - view.topline }
+  local placed = page.placed
+  if placed and placed.line == view.lnum then
+    -- not moved since the last switch: back to the same page line
+    anchor.row, anchor.key = placed.row, placed.key
+  end
+  page.anchor = anchor
   api.nvim_win_set_buf(win, page.buf)
   for k, v in pairs(WIN_OPTS) do
     vim.wo[win][0][k] = v
@@ -570,8 +589,11 @@ function M.close(win)
     local last = api.nvim_buf_line_count(page.raw)
     local lnum = math.min(last, math.max(1, anchor.line))
     api.nvim_win_call(win, function()
-      vim.fn.winrestview({ lnum = lnum, topline = math.max(1, lnum - anchor.offset) })
+      vim.fn.winrestview({ lnum = lnum, col = anchor.col, topline = math.max(1, lnum - anchor.offset) })
     end)
+    if anchor.row and anchor.key then
+      page.placed = { key = anchor.key, row = anchor.row, line = lnum, col = anchor.col }
+    end
   end
 end
 

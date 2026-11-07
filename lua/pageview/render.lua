@@ -15,7 +15,9 @@ local M = {}
 M.SLICE_ROWS = 48
 
 --- Bump when the layout or capture logic changes so old cache entries are ignored.
-M.VERSION = 2 -- 2: captures from a fresh tab (version 1 could cache tiled images)
+-- 2: captures from a fresh tab (version 1 could cache tiled images)
+-- 3: blocks with their first and end lines instead of start lines
+M.VERSION = 3
 
 ---@class pageview.RenderParams
 ---@field src string markdown source
@@ -31,6 +33,10 @@ M.VERSION = 2 -- 2: captures from a fresh tab (version 1 could cache tiled image
 ---@field code_font? string
 ---@field css? string extra CSS
 
+--- Where a block of the document is drawn: source lines `[1]` to `[2]`
+--- (0-based, end exclusive) fill rows `[3]` to `[4]` (0-based, fractional).
+---@alias pageview.Block number[]
+
 ---@class pageview.Layout
 ---@field version integer
 ---@field total_rows integer
@@ -41,7 +47,7 @@ M.VERSION = 2 -- 2: captures from a fresh tab (version 1 could cache tiled image
 ---@field dpr number
 ---@field cell_width number
 ---@field cell_height number
----@field lines integer[][] { source line (0-based), row (0-based) } in document order
+---@field blocks pageview.Block[] in document order
 
 --- Device pixels per CSS pixel: follow the terminal font (snacks.nvim uses the
 --- same cell_width / 8 guess), then apply the zoom.
@@ -77,7 +83,7 @@ end
 
 --- Turn the browser's measurements (CSS px) into a cell layout.
 ---@param p pageview.RenderParams
----@param m { height: number, left: number, articleWidth: number, lines: number[][] }
+---@param m { height: number, left: number, articleWidth: number, blocks: number[][] }
 ---@return pageview.Layout
 function M.plan(p, m)
   local dpr = M.scale(p.cell_width, p.zoom)
@@ -90,9 +96,13 @@ function M.plan(p, m)
   end
   ncols = math.min(ncols, kitty.MAX_CELLS)
   local total_rows = math.max(1, math.ceil(m.height * dpr / ch - 1e-6))
-  local lines = {}
-  for _, l in ipairs(m.lines) do
-    lines[#lines + 1] = { l[1], math.floor(l[2] * dpr / ch + 1e-6) }
+  -- rows to two decimals: enough to place lines, and short in the cache file
+  local function row(px)
+    return math.floor(px * dpr / ch * 100 + 0.5) / 100
+  end
+  local blocks = {}
+  for _, b in ipairs(m.blocks) do
+    blocks[#blocks + 1] = { b[1], b[2], row(b[3]), row(b[4]) }
   end
   return {
     version = M.VERSION,
@@ -104,7 +114,7 @@ function M.plan(p, m)
     dpr = dpr,
     cell_width = cw,
     cell_height = ch,
-    lines = lines,
+    blocks = blocks,
   }
 end
 

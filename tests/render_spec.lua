@@ -25,39 +25,43 @@ describe("render", function()
   it("crops to the article columns", function()
     -- 100 cols * 16 px / scale 2 = 800 CSS px wide window, one cell = 8 CSS px.
     -- Article from 200 to 760 CSS px = columns 25 to 95.
-    local l = render.plan(params(), { height = 640, left = 200, articleWidth = 560, lines = {} })
+    local l = render.plan(params(), { height = 640, left = 200, articleWidth = 560, blocks = {} })
     assert.are.equal(25, l.col0)
     assert.are.equal(70, l.ncols)
     assert.are.equal(40, l.total_rows) -- 640 CSS px * 2 / 32 px
   end)
 
   it("uses the whole window with background = full", function()
-    local l = render.plan(params({ background = "full" }), { height = 10, left = 100, articleWidth = 600, lines = {} })
+    local l = render.plan(params({ background = "full" }), { height = 10, left = 100, articleWidth = 600, blocks = {} })
     assert.are.equal(0, l.col0)
     assert.are.equal(100, l.ncols)
   end)
 
   it("rounds partial cells outward", function()
     -- article from 201 to 761 CSS px: starts inside column 25, ends inside column 95
-    local l = render.plan(params(), { height = 641, left = 201, articleWidth = 560, lines = {} })
+    local l = render.plan(params(), { height = 641, left = 201, articleWidth = 560, blocks = {} })
     assert.are.equal(25, l.col0)
     assert.are.equal(71, l.ncols)
     assert.are.equal(41, l.total_rows)
   end)
 
   it("never goes past the window", function()
-    local l = render.plan(params(), { height = 10, left = 0, articleWidth = 900, lines = {} })
+    local l = render.plan(params(), { height = 10, left = 0, articleWidth = 900, blocks = {} })
     assert.are.equal(0, l.col0)
     assert.are.equal(100, l.ncols)
   end)
 
-  it("maps source lines to rows", function()
-    local l = render.plan(params(), { height = 640, left = 0, articleWidth = 800, lines = { { 0, 32 }, { 4, 100 } } })
-    assert.are.same({ { 0, 2 }, { 4, 6 } }, l.lines)
+  it("turns block positions into rows", function()
+    -- one row = 16 CSS px
+    local l = render.plan(
+      params(),
+      { height = 640, left = 0, articleWidth = 800, blocks = { { 0, 3, 32, 100 }, { 4, 9, 100.1234, 160 } } }
+    )
+    assert.are.same({ { 0, 3, 2, 6.25 }, { 4, 9, 6.26, 10 } }, l.blocks)
   end)
 
   it("splits rows into slices", function()
-    local l = render.plan(params(), { height = 1600, left = 0, articleWidth = 800, lines = {} })
+    local l = render.plan(params(), { height = 1600, left = 0, articleWidth = 800, blocks = {} })
     assert.are.equal(100, l.total_rows)
     assert.are.equal(math.ceil(100 / render.SLICE_ROWS), l.slices)
     local row0, rows = render.slice_rows(l, l.slices)

@@ -255,6 +255,58 @@ describe("page", function()
     end)
   end)
 
+  describe("source lines", function()
+    --- Source line ranges of the measured blocks.
+    local function ranges(src)
+      return page(
+        "",
+        ("pageviewRender(%s).then((m) => m.blocks.map((b) => [b[0], b[1]]))"):format(vim.json.encode(src))
+      )
+    end
+
+    it_browser("are reported for every drawn block", function()
+      local src = "# Title\n\nOne\ntwo\n\n- a\n- b\n\n> quote\n\n$$\nx\n$$\n\n```mermaid\ngraph TD\n  A --> B\n```"
+      assert.are.same({
+        { 0, 1 }, -- heading
+        { 2, 4 }, -- paragraph
+        { 5, 8 }, -- list (items in a tight list have no paragraphs)
+        { 5, 6 },
+        { 6, 8 },
+        { 8, 9 }, -- quote
+        { 8, 9 },
+        { 10, 13 }, -- math
+        { 14, 18 }, -- diagram
+      }, ranges(src))
+    end)
+
+    it_browser("of code are reported one per line", function()
+      local lines = {}
+      for i = 1, 30 do
+        lines[i] = ("local x%d = %d"):format(i, i)
+      end
+      local code = table.concat(lines, "\n")
+      local blocks = page(
+        "",
+        ("pageviewRender(%s).then((m) => m.blocks)"):format(
+          vim.json.encode("```lua\n" .. code .. "\n```\n\n    indented\n    code")
+        )
+      )
+      assert.are.same({ 0, 32 }, { blocks[1][1], blocks[1][2] }) -- the box with its fences
+      assert.are.same({ 1, 31 }, { blocks[2][1], blocks[2][2] }) -- the code lines
+      assert.are.same({ 33, 35 }, { blocks[3][1], blocks[3][2] })
+      assert.are.same({ 33, 35 }, { blocks[4][1], blocks[4][2] })
+      -- code lines sit inside the box, at GitHub's 13.6px * 1.45 per line
+      assert.is_true(blocks[2][3] > blocks[1][3] and blocks[2][4] < blocks[1][4])
+      local per_line = (blocks[2][4] - blocks[2][3]) / 30
+      assert.is_true(math.abs(per_line - 13.6 * 1.45) < 0.5, tostring(per_line))
+    end)
+
+    it_browser("skip what is not drawn", function()
+      local src = "<details>\n<summary>S</summary>\n\nHidden text.\n\n</details>\n\nAfter."
+      assert.are.same({ { 7, 8 } }, ranges(src))
+    end)
+  end)
+
   it_browser("removes scripts and event handlers from inline HTML", function()
     local html = page(
       '<img src="dot.svg" onerror="alert(1)"><script>alert(2)</script>',
