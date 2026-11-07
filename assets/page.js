@@ -243,6 +243,24 @@
     }
   }
 
+  // GitHub's heading anchors (github-slugger): lower case, punctuation and
+  // symbols removed except "-" and "_", spaces to "-", "-1", "-2"… for
+  // repeats. Prefixed with "user-content-" as on GitHub, so a heading cannot
+  // take the id of the page's own elements; links to "#slug" find it anyway.
+  function slug(text) {
+    return text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, "").replace(/ /g, "-");
+  }
+  function addHeadingIds() {
+    const seen = new Map();
+    for (const h of root.querySelectorAll("h1, h2, h3, h4, h5, h6")) {
+      if (h.id) continue; // set in the document's own HTML
+      const base = slug(h.textContent.trim());
+      const n = seen.get(base) || 0;
+      seen.set(base, n + 1);
+      h.id = "user-content-" + (n ? `${base}-${n}` : base);
+    }
+  }
+
   /**
    * Render markdown into the page and report its geometry in CSS pixels.
    * @param {string} src
@@ -259,6 +277,7 @@
 
     root.style.minHeight = "";
     root.innerHTML = DOMPurify.sanitize(md.render(src), { ADD_ATTR: ["target"] });
+    addHeadingIds();
 
     await renderDiagrams();
     await imagesLoaded(5000);
@@ -281,8 +300,42 @@
       padLeft: parseFloat(getComputedStyle(root).paddingLeft) || 0,
       background: bg,
       blocks: measureBlocks(),
+      links: measureLinks(),
+      anchors: measureAnchors(),
     };
   };
+
+  // Where in-page links can go: the top of every element with an id (headings,
+  // footnotes, the document's own HTML) or a name, in CSS pixels. Diagram and
+  // formula internals are left out.
+  function measureAnchors() {
+    const y = window.scrollY;
+    const anchors = {};
+    for (const el of root.querySelectorAll("[id], a[name]")) {
+      if (el.closest("svg, .katex") || !el.checkVisibility()) continue;
+      const top = el.getBoundingClientRect().top + y;
+      for (const name of [el.id, el.getAttribute("name")]) {
+        if (name && !(name in anchors)) anchors[name] = top;
+      }
+    }
+    return anchors;
+  }
+
+  // Links and where they are drawn: [href as written, resolved URL, text,
+  // [[top, bottom], ...]] in CSS pixels, one box per line a link wraps over.
+  function measureLinks() {
+    const y = window.scrollY;
+    const links = [];
+    for (const a of root.querySelectorAll("a[href]")) {
+      if (!a.checkVisibility()) continue;
+      const boxes = [...a.getClientRects()].filter((r) => r.height > 0).map((r) => [r.top + y, r.bottom + y]);
+      if (boxes.length === 0) continue;
+      const img = a.querySelector("img");
+      const text = a.textContent.trim() || (img && img.alt) || "";
+      links.push([a.getAttribute("href"), a.href, text.slice(0, 100), boxes]);
+    }
+    return links;
+  }
 
   // Where each tagged block is drawn: [first line, end line, top, bottom] in
   // document order, in CSS pixels. A code block is reported twice: the whole

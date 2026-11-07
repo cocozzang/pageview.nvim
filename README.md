@@ -68,9 +68,20 @@ vim.api.nvim_set_hl(0, "PageviewMatch", { fg = "#f0883e" })
 
 The source is searched, not the rendered text, so Markdown syntax and link targets can match too.
 
-`n` and `N` are mapped in page buffers only. With `keymaps = false` they are left unmapped, and you can map
-`require("pageview").search_next()` and `search_next(true)` yourself (in a `FileType pageview` autocommand, for
-example). `/` and `?` always search the source.
+### Links
+
+`gx` in a page opens the link on the cursor row: web links with the system's handler, files next to the document in
+Neovim (pictures, PDFs and such with the system's viewer). With several links on the row you pick one; with none,
+`gx` switches to raw at that line.
+
+Links within the document (a table of contents, footnotes) stay on the page and bring the heading or footnote to the
+top of the window; `Ctrl-O` goes back. Headings get the same anchors as on GitHub (`#installation`, `#설치-방법`).
+
+### Keys
+
+`n`, `N` and `gx` are mapped in page buffers only. With `keymaps = false` they are left unmapped, and you can map
+`require("pageview").search_next()`, `search_next(true)` and `open_link()` yourself (in a `FileType pageview`
+autocommand, for example). `/` and `?` always search the source.
 
 ### Statusline
 
@@ -114,7 +125,7 @@ require("pageview").setup({
   browser_idle_timeout = 600, -- seconds before an unused browser is closed; 0 keeps it
   filetypes = { "markdown" },
   cache_max_size = 200 * 1024 * 1024, -- bytes of rendered images kept on disk
-  keymaps = true, -- map n and N in page buffers
+  keymaps = true, -- map n, N and gx in page buffers
 })
 ```
 
