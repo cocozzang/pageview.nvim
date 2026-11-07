@@ -12,6 +12,7 @@
 ---@field browser_idle_timeout integer Seconds without rendering before the browser is closed. 0 keeps it running.
 ---@field filetypes string[] Filetypes that can be shown as a page.
 ---@field cache_max_size integer Bytes of rendered images kept on disk.
+---@field keymaps boolean Map `n`, `N` and `gx` in page buffers.
 
 ---@class pageview.FontConfig
 ---@field body? string CSS font-family list for text. `nil` uses GitHub's list.
@@ -31,6 +32,7 @@ M.defaults = {
   browser_idle_timeout = 600,
   filetypes = { "markdown" },
   cache_max_size = 200 * 1024 * 1024,
+  keymaps = true,
 }
 
 ---@type pageview.Config
@@ -87,6 +89,7 @@ function M.validate(c)
   )
   check(e, is_list_of_strings(c.filetypes), "filetypes: expected a list of strings")
   check(e, type(c.cache_max_size) == "number" and c.cache_max_size >= 0, "cache_max_size: expected a number >= 0")
+  check(e, type(c.keymaps) == "boolean", "keymaps: expected a boolean")
   if #e > 0 then
     return false, table.concat(e, "\n")
   end

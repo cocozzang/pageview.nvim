@@ -278,13 +278,16 @@
       height: Math.max(rect.bottom + window.scrollY, 1),
       left: rect.left,
       articleWidth: rect.width,
+      padLeft: parseFloat(getComputedStyle(root).paddingLeft) || 0,
+      background: bg,
       blocks: measureBlocks(),
     };
   };
 
   // Where each tagged block is drawn: [first line, end line, top, bottom] in
   // document order, in CSS pixels. A code block is reported twice: the whole
-  // box with its fences, then only its code lines.
+  // box with its fences, then only its code lines, marked with a fifth item
+  // (1) because they are evenly spaced.
   function measureBlocks() {
     const y = window.scrollY;
     const blocks = [];
@@ -299,7 +302,7 @@
         blocks.push([Number(d.sourceLine), Number(d.sourceEnd), box.top + y, box.bottom + y]);
         if (Number(d.codeEnd) > Number(d.codeStart)) {
           const text = (pre.querySelector("code") || pre).getBoundingClientRect();
-          blocks.push([Number(d.codeStart), Number(d.codeEnd), text.top + y, text.bottom + y]);
+          blocks.push([Number(d.codeStart), Number(d.codeEnd), text.top + y, text.bottom + y, 1]);
         }
       } else {
         blocks.push([Number(d.sourceLine), Number(d.sourceEnd), r.top + y, r.bottom + y]);

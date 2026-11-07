@@ -40,6 +40,18 @@ function M.toggle(win)
   require("pageview.view").toggle(win)
 end
 
+--- In a page: go to the next match of the last search pattern in the source,
+--- like `n`. With `reverse`, like `N`. Takes a count.
+---@param reverse? boolean
+function M.search_next(reverse)
+  init()
+  local win = vim.api.nvim_get_current_win()
+  local page = require("pageview.view").get(vim.api.nvim_win_get_buf(win))
+  if page then
+    require("pageview.search").next(page, win, reverse == true, vim.v.count1)
+  end
+end
+
 --- "PAGE" in a page buffer, "RAW" in a buffer that can be shown as a page,
 --- "" elsewhere. For statuslines.
 ---@param buf? integer

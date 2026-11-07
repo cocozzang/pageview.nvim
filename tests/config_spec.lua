@@ -23,10 +23,11 @@ describe("config", function()
     vim.notify = function(msg)
       notified = msg
     end
-    config.setup({ background = "pink", zoom = -1 })
+    config.setup({ background = "pink", zoom = -1, keymaps = "yes" })
     vim.notify = orig
     assert.matches("background", notified)
     assert.matches("zoom", notified)
+    assert.matches("keymaps", notified)
     assert.are.equal("page", config.get().background)
   end)
 

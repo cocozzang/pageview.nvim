@@ -20,6 +20,7 @@ local M = {}
 
 local ns = api.nvim_create_namespace("pageview")
 local ns_status = api.nvim_create_namespace("pageview.status")
+local ns_match = api.nvim_create_namespace("pageview.match")
 
 ---@class pageview.Anchor
 ---@field line integer source line (1-based)
@@ -46,6 +47,7 @@ local ns_status = api.nvim_create_namespace("pageview.status")
 ---@field layout? pageview.Layout
 ---@field anchor? pageview.Anchor where to scroll once the layout is ready
 ---@field placed? pageview.Placed
+---@field match? { line: integer, col: integer } last search match, marked on the page
 ---@field shown table<integer, pageview.kitty.Image> slice index -> image in the terminal
 ---@field queue integer[] slices waiting to be captured
 ---@field queued table<integer, boolean>
@@ -177,6 +179,9 @@ local function show_slice(page, index, path)
     })
   end
   set_status(page, nil)
+  if api.nvim_get_mode().mode == "c" then
+    vim.cmd.redraw() -- the screen is not updated on its own while typing a search
+  end
 end
 
 --- Rows (1-based) that should have images: the visible rows plus one screen
@@ -291,6 +296,16 @@ function start_worker(page)
   end)
 end
 
+--- Page line (1-based) where a source line (1-based) is drawn: the row that
+--- holds most of the line's first row.
+---@param layout pageview.Layout
+---@param line integer
+---@return integer
+local function page_line(layout, line)
+  local lnum = math.floor(position.row(layout.blocks, line - 1) + 0.5) + 1
+  return math.max(1, math.min(layout.total_rows, lnum))
+end
+
 --- Where the cursor is, in source lines.
 ---@param page pageview.Page
 ---@param win integer
@@ -323,14 +338,100 @@ local function goto_anchor(page, win, anchor)
   end
   local lnum = anchor.row
   if not (lnum and anchor.key == page.key) then
-    -- the row that holds most of the line's first row
-    lnum = math.floor(position.row(layout.blocks, anchor.line - 1) + 0.5) + 1
+    lnum = page_line(layout, anchor.line)
   end
   lnum = math.max(1, math.min(layout.total_rows, lnum))
   api.nvim_win_call(win, function()
     vim.fn.winrestview({ lnum = lnum, col = 0, topline = math.max(1, lnum - anchor.offset), leftcol = 0 })
   end)
   page.placed = { key = page.key, row = lnum, line = anchor.line, col = anchor.col }
+end
+
+--- The source position at the page cursor: exact while the cursor stays where
+--- the last switch or search put it, else the start of the line drawn there.
+---@param page pageview.Page
+---@param win integer
+---@return { line: integer, col: integer } pos 1-based line, 0-based column
+---@return boolean exact
+function M.cursor_source(page, win)
+  local lnum = api.nvim_win_get_cursor(win)[1]
+  local placed = page.placed
+  if placed and placed.key == page.key and placed.row == lnum then
+    return { line = placed.line, col = placed.col or 0 }, placed.col ~= nil
+  end
+  local line = page.layout and (position.line(page.layout.blocks, lnum - 0.5) + 1) or 1
+  return { line = line, col = 0 }, false
+end
+
+--- Move the page cursor to where a source position is drawn, as a jump (so
+--- `''` and Ctrl-O come back). Switching to raw from there lands on it.
+---@param page pageview.Page
+---@param win integer
+---@param line integer 1-based
+---@param col integer 0-based
+function M.jump(page, win, line, col)
+  local lnum = page_line(assert(page.layout), line)
+  api.nvim_win_call(win, function()
+    vim.cmd("normal! m'")
+    api.nvim_win_set_cursor(win, { lnum, 0 })
+  end)
+  page.placed = { key = page.key, row = lnum, line = line, col = col }
+end
+
+--- Show the page where a source line is drawn, without making it a jump:
+--- for following a search while it is typed.
+---@param page pageview.Page
+---@param win integer
+---@param line integer 1-based
+function M.preview(page, win, line)
+  api.nvim_win_set_cursor(win, { page_line(assert(page.layout), line), 0 })
+  update_visible(page, win)
+end
+
+--- Highlight of the match mark: the foreground of `PageviewMatch` if it is
+--- set, else the background of `Search`, over the article background.
+---@param bg? string
+---@return string
+local function match_hl(bg)
+  local fg = api.nvim_get_hl(0, { name = "PageviewMatch", link = false }).fg
+  if not fg then
+    local search = api.nvim_get_hl(0, { name = "Search", link = false })
+    fg = search.bg or search.fg
+  end
+  api.nvim_set_hl(0, "PageviewMatchMark", { fg = fg, bg = bg })
+  return "PageviewMatchMark"
+end
+
+--- Draw a bar beside the rows of the last match, in the article's left padding.
+---@param page pageview.Page
+local function draw_match(page)
+  if not api.nvim_buf_is_valid(page.buf) then
+    return
+  end
+  api.nvim_buf_clear_namespace(page.buf, ns_match, 0, -1)
+  local match, layout = page.match, page.layout
+  if not (match and layout) then
+    return
+  end
+  local top, bottom = position.extent(layout.blocks, match.line - 1)
+  local r0 = math.max(0, math.min(layout.total_rows - 1, math.floor(top + 0.5)))
+  local r1 = math.max(r0, math.min(layout.total_rows - 1, math.floor(bottom + 0.5) - 1))
+  local hl = match_hl(layout.bg)
+  for r = r0, r1 do
+    api.nvim_buf_set_extmark(page.buf, ns_match, r, 0, {
+      virt_text = { { "▌", hl } },
+      virt_text_win_col = layout.mark_col,
+      priority = 5000, -- over the image placeholders
+    })
+  end
+end
+
+--- Mark a search match on the page (nil removes the mark).
+---@param page pageview.Page
+---@param match? { line: integer, col: integer }
+function M.set_match(page, match)
+  page.match = match
+  draw_match(page)
 end
 
 ---@param page pageview.Page
@@ -340,6 +441,7 @@ local function apply_layout(page, layout)
   page.failed = nil
   api.nvim_buf_clear_namespace(page.buf, ns, 0, -1)
   set_line_count(page, layout.total_rows)
+  draw_match(page)
   local win = find_win(page)
   if not win then
     return
@@ -504,6 +606,27 @@ local function create(raw)
       pcall(api.nvim_del_augroup_by_id, group)
     end,
   })
+  -- with 'hlsearch', the mark goes away with the highlighting (:nohlsearch)
+  api.nvim_create_autocmd("CursorMoved", {
+    group = group,
+    buffer = buf,
+    callback = function()
+      if page.match and vim.o.hlsearch and vim.v.hlsearch == 0 then
+        M.set_match(page, nil)
+      end
+    end,
+  })
+
+  if config.get().keymaps then
+    local function map(lhs, reverse, desc)
+      vim.keymap.set("n", lhs, function()
+        require("pageview.search").next(page, api.nvim_get_current_win(), reverse, vim.v.count1)
+      end, { buffer = buf, desc = desc })
+    end
+    map("n", false, "Next match in the source")
+    map("N", true, "Previous match in the source")
+  end
+
   api.nvim_create_autocmd("BufWipeout", {
     group = group,
     buffer = raw,
@@ -584,6 +707,7 @@ function M.close(win)
   if not api.nvim_buf_is_valid(page.raw) then
     return
   end
+  M.set_match(page, nil)
   api.nvim_win_set_buf(win, page.raw)
   if anchor then
     local last = api.nvim_buf_line_count(page.raw)
@@ -680,6 +804,52 @@ function M.setup_autocmds()
       if config.get().theme == nil and next(pages) then
         on_resize()
       end
+    end,
+  })
+  -- `/` and `?` in a page: follow the pattern while it is typed, then cancel
+  -- Neovim's search of the empty page lines and search the source instead
+  -- (see search.lua).
+  api.nvim_create_autocmd("CmdlineEnter", {
+    group = group,
+    pattern = { "/", "?" },
+    callback = function()
+      local win = api.nvim_get_current_win()
+      local page = pages[api.nvim_win_get_buf(win)]
+      if page then
+        require("pageview.search").enter(page, win, vim.v.event.cmdtype == "/")
+      end
+    end,
+  })
+  api.nvim_create_autocmd("CmdlineChanged", {
+    group = group,
+    pattern = { "/", "?" },
+    callback = function()
+      if pages[api.nvim_get_current_buf()] then
+        require("pageview.search").changed(vim.fn.getcmdline())
+      end
+    end,
+  })
+  api.nvim_create_autocmd("CmdlineLeave", {
+    group = group,
+    pattern = { "/", "?" },
+    callback = function()
+      local win = api.nvim_get_current_win()
+      local page = pages[api.nvim_win_get_buf(win)]
+      if not page then
+        return
+      end
+      local event = vim.v.event
+      local text = vim.fn.getcmdline()
+      require("pageview.search").leave()
+      vim.cmd("let v:event.abort = v:true")
+      if event.abort then
+        return -- <Esc> or Ctrl-C
+      end
+      vim.schedule(function()
+        if api.nvim_win_is_valid(win) and api.nvim_win_get_buf(win) == page.buf then
+          require("pageview.search").submit(page, win, text, event.cmdtype == "/")
+        end
+      end)
     end,
   })
   api.nvim_create_autocmd("VimLeavePre", {
