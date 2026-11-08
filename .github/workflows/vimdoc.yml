@@ -26,6 +26,9 @@ jobs:
           vimdoc: pageview
           version: "Neovim >= 0.10.0"
           demojify: true
+          # the README's "# pageview.nvim" is the title; its "##" sections become
+          # the help file's sections (tags like pageview-configuration)
+          shiftheadinglevelby: -1
       - name: Upload the help file
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v7
