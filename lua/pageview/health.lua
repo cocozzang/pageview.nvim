@@ -31,8 +31,6 @@ function M.check()
   local info = terminal.detect()
   if info.graphics then
     health.ok(("%s supports kitty graphics with unicode placeholders"):format(info.name))
-  elseif info.name == "wezterm" then
-    health.warn("WezTerm is not supported yet (planned for 0.2.0)")
   else
     health.error(("terminal not supported: %s"):format(info.name), {
       "Supported: kitty, Ghostty.",
