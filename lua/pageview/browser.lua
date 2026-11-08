@@ -60,11 +60,40 @@ function M.find()
   return nil
 end
 
+--- Where the assets folder is for a module file at `lua_file`. In a git
+--- checkout it is beside the lua folder. A luarocks install puts the lua files
+--- in the tree's share/lua and the other folders in the rock's own folder,
+--- which plugin managers (rocks.nvim) add to 'runtimepath': there it is beside
+--- plugin/pageview.lua. Falls back to the first guess, for checkhealth to
+--- report.
+---@param lua_file string
+---@return string
+function M.find_assets(lua_file)
+  local candidates = { vim.fn.fnamemodify(lua_file, ":p:h:h:h") .. "/assets" }
+  for _, plugin in ipairs(vim.api.nvim_get_runtime_file("plugin/pageview.lua", true)) do
+    candidates[#candidates + 1] = vim.fn.fnamemodify(plugin, ":p:h:h") .. "/assets"
+  end
+  for _, dir in ipairs(candidates) do
+    if vim.uv.fs_stat(dir .. "/page.html") then
+      return vim.fs.normalize(dir)
+    end
+  end
+  return vim.fs.normalize(candidates[1])
+end
+
+local assets ---@type string?
+
 --- Folder holding page.html and the bundled libraries.
 ---@return string
 function M.assets_dir()
-  local here = debug.getinfo(1, "S").source:sub(2)
-  return vim.fs.normalize(vim.fn.fnamemodify(here, ":p:h:h:h") .. "/assets")
+  if assets then
+    return assets
+  end
+  local dir = M.find_assets(debug.getinfo(1, "S").source:sub(2))
+  if vim.uv.fs_stat(dir .. "/page.html") then
+    assets = dir -- not kept while missing: 'runtimepath' may still change
+  end
+  return dir
 end
 
 ---@class pageview.Browser
@@ -129,6 +158,11 @@ end
 ---@param path string
 ---@return pageview.Browser
 local function launch(path)
+  -- A missing file still "loads" (as an error page), so check first.
+  local page = M.assets_dir() .. "/page.html"
+  if not vim.uv.fs_stat(page) then
+    error(("bundled files not found: %s. See :checkhealth pageview"):format(page), 0)
+  end
   local dir = new_profile()
   sweep_profiles(dir)
   local args = {
@@ -181,7 +215,7 @@ local function launch(path)
         loaded = true
       end
     end)
-    call(client, "Page.navigate", { url = vim.uri_from_fname(M.assets_dir() .. "/page.html") }, session)
+    call(client, "Page.navigate", { url = vim.uri_from_fname(page) }, session)
     local waited = 0
     while not loaded and waited < 10000 do
       async.sleep(10)
