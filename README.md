@@ -2,7 +2,13 @@
 
 Toggle a Markdown buffer between raw text and a browser-rendered page, inside the same Neovim window.
 
-> Work in progress. Not released yet.
+<!-- panvimdoc-ignore-start -->
+
+English | [한국어](README.ko.md)
+
+<!-- screenshot: Raw and Page side by side in Ghostty -->
+
+<!-- panvimdoc-ignore-end -->
 
 The page is drawn by a headless Chromium-based browser and shown as images in the terminal, so it looks exactly
 like a browser: proportional fonts, real heading sizes, spacing. You scroll it with the usual motions (`j`/`k`,
@@ -27,6 +33,12 @@ like a browser: proportional fonts, real heading sizes, spacing. You scroll it w
   cmd = "Pageview",
   opts = {},
 }
+```
+
+[rocks.nvim](https://github.com/nvim-neorocks/rocks.nvim):
+
+```vim
+:Rocks install pageview.nvim
 ```
 
 `setup()` is optional. Without it the defaults below are used.
@@ -131,12 +143,20 @@ require("pageview").setup({
 
 Run `:checkhealth pageview` if something does not show up.
 
+## Limitations
+
+- Only kitty and Ghostty can show the page. Other terminals get an error that points to `:checkhealth pageview`.
+- The page is a picture: its text cannot be selected or copied, and a search marks the line or paragraph, not the
+  word. Switch to raw for that.
+- The page is read-only. Edit in raw; the page shows the changes the next time you open it.
+- Neovim and the browser must run on the same machine. Remote sessions over SSH are not supported.
+
 ## How it works
 
 1. The buffer text goes to a page shell with [markdown-it](https://github.com/markdown-it/markdown-it),
    [DOMPurify](https://github.com/cure53/DOMPurify),
-   [github-markdown-css](https://github.com/sindresorhus/github-markdown-css) and highlight.js, loaded in a headless browser started
-   with `--remote-debugging-pipe` and driven over the Chrome DevTools Protocol.
+   [github-markdown-css](https://github.com/sindresorhus/github-markdown-css), highlight.js, KaTeX and Mermaid,
+   loaded in a headless browser started with `--remote-debugging-pipe` and driven over the Chrome DevTools Protocol.
 2. The page is laid out at the window width, with one terminal cell mapped to a fixed number of CSS pixels.
 3. Slices of the page near the visible rows are captured as PNG files and sent to the terminal with the kitty
    graphics protocol. Each buffer line of the page buffer is one terminal row of the image.
