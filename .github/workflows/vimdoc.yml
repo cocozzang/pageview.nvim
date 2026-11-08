@@ -1,0 +1,43 @@
+# doc/pageview.txt (`:help pageview`) is generated from README.md: edit the
+# README, not the help file. On main the result is committed; in a pull
+# request it is only uploaded, to be looked at before merging.
+name: vimdoc
+
+on:
+  push:
+    branches: [main]
+    paths: [README.md, .github/workflows/vimdoc.yml]
+  pull_request:
+    paths: [README.md, .github/workflows/vimdoc.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vimdoc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # pandoc does not create the output folder
+      - run: mkdir -p doc
+      - uses: kdheepak/panvimdoc@v6.0.0
+        with:
+          vimdoc: pageview
+          version: "Neovim >= 0.10.0"
+          demojify: true
+          # the README's "# pageview.nvim" is the title; its "##" sections become
+          # the help file's sections (tags like pageview-configuration)
+          shiftheadinglevelby: -1
+      - name: Upload the help file
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pageview.txt
+          path: doc/pageview.txt
+      - name: Commit the help file
+        if: github.event_name != 'pull_request'
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "docs: regenerate the help file"
+          file_pattern: doc/pageview.txt
