@@ -54,6 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The release job must not need lua.org: fail here if it would.
+      - name: Block lua.org
+        run: echo "0.0.0.0 www.lua.org lua.org" | sudo tee -a /etc/hosts
       - uses: nvim-neorocks/luarocks-tag-release@v9
         with:
           copy_directories: |
