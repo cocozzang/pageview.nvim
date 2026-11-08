@@ -4,7 +4,10 @@ Neovim 창 하나에서 마크다운 버퍼를 원문과 브라우저로 렌더�
 
 [English](README.md) | 한국어
 
-<!-- screenshot: Raw and Page side by side in Ghostty -->
+<p>
+  <img width="49%" alt="Ghostty에 띄운 페이지: 제목, 인라인 코드와 링크가 든 글, 한글, 이모지, 목록" src="https://github.com/user-attachments/assets/9cf910c2-b3a4-431e-a7e3-cf28ee404d9c" />
+  <img width="49%" alt="Ghostty에 띄운 페이지: 색칠된 코드 블록, KaTeX 수식, Mermaid 다이어그램" src="https://github.com/user-attachments/assets/2bee6993-b323-4f4b-834f-ee0ca8180f76" />
+</p>
 
 페이지는 백그라운드의 headless Chromium 계열 브라우저가 그리고, 터미널에는 이미지로 표시됩니다. 그래서 비례 폰트,
 실제 제목 크기, 여백까지 브라우저와 똑같이 보입니다. 스크롤은 평소처럼 `j`/`k`, `Ctrl-d`/`Ctrl-u`, `gg`/`G`로 합니다.

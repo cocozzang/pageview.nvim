@@ -6,7 +6,10 @@ Toggle a Markdown buffer between raw text and a browser-rendered page, inside th
 
 English | [한국어](README.ko.md)
 
-<!-- screenshot: Raw and Page side by side in Ghostty -->
+<p>
+  <img width="49%" alt="A page in Ghostty: headings, text with inline code and links, Korean text, emoji and lists" src="https://github.com/user-attachments/assets/9cf910c2-b3a4-431e-a7e3-cf28ee404d9c" />
+  <img width="49%" alt="A page in Ghostty: highlighted code blocks, KaTeX math and a Mermaid diagram" src="https://github.com/user-attachments/assets/2bee6993-b323-4f4b-834f-ee0ca8180f76" />
+</p>
 
 <!-- panvimdoc-ignore-end -->
 
