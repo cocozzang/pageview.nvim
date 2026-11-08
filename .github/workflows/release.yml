@@ -1,0 +1,61 @@
+# Releases are made by release-please: it keeps a pull request with the next
+# version and CHANGELOG.md up to date, and merging that pull request tags the
+# release. The rock goes to luarocks.org in the same workflow, because a tag
+# created with GITHUB_TOKEN starts no other workflow.
+name: release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  luarocks:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: nvim-neorocks/luarocks-tag-release@v9
+        env:
+          LUX_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        with:
+          version: ${{ needs.release-please.outputs.tag_name }}
+          # assets/ holds page.html and the bundled libraries
+          copy_directories: |
+            {{ neovim.plugin.dirs }}
+            assets
+
+  # In a pull request: build the rock and install it locally, without uploading.
+  luarocks-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: nvim-neorocks/luarocks-tag-release@v9
+        with:
+          copy_directories: |
+            {{ neovim.plugin.dirs }}
+            assets
