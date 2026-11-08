@@ -38,6 +38,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
+      # Without a Lua found through pkg-config, lux downloads and builds Lua
+      # from lua.org, which often refuses connections from these runners.
+      - name: Lua for lux
+        run: sudo apt-get update -q && sudo apt-get install -y -q liblua5.1-0-dev
       - uses: nvim-neorocks/luarocks-tag-release@v9
         env:
           LUX_API_KEY: ${{ secrets.LUX_API_KEY }}
@@ -54,6 +58,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Lua for lux
+        run: sudo apt-get update -q && sudo apt-get install -y -q liblua5.1-0-dev
+      # The release job must not need lua.org (see above): fail here if it would.
+      - name: Block lua.org
+        run: echo "0.0.0.0 www.lua.org lua.org" | sudo tee -a /etc/hosts
       - uses: nvim-neorocks/luarocks-tag-release@v9
         with:
           copy_directories: |
