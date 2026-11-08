@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # pandoc does not create the output folder
+      - run: mkdir -p doc
       - uses: kdheepak/panvimdoc@v6.0.0
         with:
           vimdoc: pageview
